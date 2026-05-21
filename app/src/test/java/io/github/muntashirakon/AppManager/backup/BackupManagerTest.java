@@ -75,6 +75,13 @@ public class BackupManagerTest {
         assertTrue(backupItem.getInfoFile().exists());
         BackupMetadataV5 metadata = backupItem.getMetadata();
         assertNull(metadata.metadata.backupName);
+        assertNull(backupItem.getDisplayName());
+        backupItem.setDisplayName("Before Android 16 update");
+        assertEquals("Before Android 16 update", backupItem.getDisplayName());
+        assertTrue(backupItem.getMetadata().toLocalizedString(ContextUtils.getContext())
+                .toString().startsWith("Before Android 16 update\n"));
+        backupItem.setDisplayName("   ");
+        assertNull(backupItem.getDisplayName());
         assertEquals(0, metadata.info.userId);
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadata.info.version);
         assertTrue(metadata.isBaseBackup());

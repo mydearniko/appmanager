@@ -42,6 +42,7 @@ public class BackupItems {
     private static final String RULES_TSV = "rules.am.tsv";
     private static final String MISC_TSV = "misc.am.tsv";
     private static final String CHECKSUMS_TXT = "checksums.txt";
+    private static final String DISPLAY_NAME_TXT = "display_name.am.txt";
     private static final String FREEZE = ".freeze";
     private static final String NO_MEDIA = ".nomedia";
 
@@ -383,6 +384,28 @@ public class BackupItems {
 
         public BackupMetadataV5 getMetadata(BackupMetadataV5.Info backupInfo) throws IOException {
             return MetadataManager.readMetadata(this, backupInfo);
+        }
+
+        @Nullable
+        public String getDisplayName() throws IOException {
+            if (!getBackupPath().hasFile(DISPLAY_NAME_TXT)) {
+                return null;
+            }
+            return BackupUtils.normalizeBackupName(getBackupPath().findFile(DISPLAY_NAME_TXT).getContentAsString());
+        }
+
+        public void setDisplayName(@Nullable CharSequence displayName) throws IOException {
+            String normalizedDisplayName = BackupUtils.normalizeBackupName(displayName);
+            if (normalizedDisplayName == null) {
+                if (getBackupPath().hasFile(DISPLAY_NAME_TXT)) {
+                    getBackupPath().findFile(DISPLAY_NAME_TXT).delete();
+                }
+                return;
+            }
+            Path displayNameFile = getBackupPath().findOrCreateFile(DISPLAY_NAME_TXT, null);
+            try (BufferedWriter writer = new BufferedWriter(new PathWriter(displayNameFile))) {
+                writer.write(normalizedDisplayName);
+            }
         }
 
         @NonNull

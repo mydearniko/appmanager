@@ -30,11 +30,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.github.muntashirakon.AppManager.R;
+import io.github.muntashirakon.AppManager.backup.BackupItems;
 import io.github.muntashirakon.AppManager.backup.BackupFlags;
+import io.github.muntashirakon.AppManager.backup.BackupUtils;
 import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
 import io.github.muntashirakon.AppManager.batchops.BatchOpsManager;
+import io.github.muntashirakon.AppManager.utils.ThreadUtils;
 import io.github.muntashirakon.AppManager.utils.UIUtils;
 import io.github.muntashirakon.dialog.SearchableFlagsDialogBuilder;
+import io.github.muntashirakon.dialog.TextInputDialogBuilder;
 import io.github.muntashirakon.util.AdapterUtils;
 
 public class RestoreSingleFragment extends Fragment {
@@ -77,12 +81,18 @@ public class RestoreSingleFragment extends Fragment {
 
             PopupMenu popupMenu = new PopupMenu(mContext, v);
             Menu menu = popupMenu.getMenu();
+            MenuItem renameMenuItem = menu.add(R.string.rename);
             MenuItem freezeMenuItem = menu.add(R.string.freeze);
             MenuItem unfreezeMenuItem = menu.add(R.string.unfreeze);
 
+            renameMenuItem.setEnabled(total == 1);
             freezeMenuItem.setEnabled((total - frozenCount) > 0);
             unfreezeMenuItem.setEnabled(frozenCount > 0);
 
+            renameMenuItem.setOnMenuItemClickListener(item -> {
+                handleRename(adapter.getSelectedBackups().get(0), adapter);
+                return true;
+            });
             freezeMenuItem.setOnMenuItemClickListener(item -> {
                 List<BackupMetadataV5> selectedBackups = adapter.getSelectedBackups();
                 for (BackupMetadataV5 metadata : selectedBackups) {
@@ -140,6 +150,39 @@ public class RestoreSingleFragment extends Fragment {
                     operationInfo.flags = enabledFlags.getFlags();
                     operationInfo.relativeDirs = new String[]{selectedBackup.info.getRelativeDir()};
                     mViewModel.prepareForOperation(operationInfo);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void handleRename(@NonNull BackupMetadataV5 selectedBackup, @NonNull BackupAdapter adapter) {
+        BackupItems.BackupItem backupItem = selectedBackup.info.getBackupItem();
+        CharSequence currentName;
+        try {
+            currentName = backupItem.getDisplayName();
+        } catch (IOException e) {
+            currentName = null;
+        }
+        if (currentName == null && !selectedBackup.isBaseBackup()) {
+            currentName = selectedBackup.metadata.backupName;
+        }
+        new TextInputDialogBuilder(mContext, R.string.input_backup_name)
+                .setTitle(R.string.rename)
+                .setHelperText(R.string.input_backup_name_rename_description)
+                .setInputText(currentName)
+                .setPositiveButton(R.string.rename, (dialog, which, input, isChecked) -> {
+                    CharSequence displayName = BackupUtils.normalizeBackupName(input);
+                    ThreadUtils.postOnBackgroundThread(() -> {
+                        try {
+                            backupItem.setDisplayName(displayName);
+                            ThreadUtils.postOnMainThread(() -> {
+                                adapter.notifyItemRangeChanged(0, adapter.getItemCount(), AdapterUtils.STUB);
+                                UIUtils.displayShortToast(R.string.renamed_successfully);
+                            });
+                        } catch (IOException e) {
+                            ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(e.getLocalizedMessage()));
+                        }
+                    });
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();

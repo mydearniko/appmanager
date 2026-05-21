@@ -83,26 +83,33 @@ public class BackupFragment extends Fragment {
     }
 
     private void handleBackup(@NonNull BackupFlags flags) {
+        new TextInputDialogBuilder(mContext, R.string.input_backup_name)
+                .setTitle(R.string.input_backup_name)
+                .setHelperText(R.string.input_backup_name_create_description)
+                .setPositiveButton(R.string.back_up, (dialog, which, input, isChecked) ->
+                        handleBackup(flags, BackupUtils.normalizeBackupName(input)))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void handleBackup(@NonNull BackupFlags flags, @Nullable String requestedBackupName) {
         BackupRestoreDialogViewModel.OperationInfo operationInfo = new BackupRestoreDialogViewModel.OperationInfo();
         operationInfo.mode = BackupRestoreDialogFragment.MODE_BACKUP;
         operationInfo.flags = flags.getFlags();
         operationInfo.op = BatchOpsManager.OP_BACKUP;
-        if (flags.backupMultiple()) {
+        boolean namedBackup = flags.backupMultiple() || requestedBackupName != null;
+        if (namedBackup) {
             // Multiple backup is requested, no need to warn users about backups since the
             // user has a choice between overwriting the existing backup or create a new one
             // TODO(18/9/20): Add overwrite option
-            new TextInputDialogBuilder(mContext, R.string.input_backup_name)
-                    .setTitle(R.string.input_backup_name)
-                    .setHelperText(R.string.input_backup_name_description)
-                    .setPositiveButton(R.string.ok, (dialog, which, input, isChecked) -> {
-                        String backupName = BackupUtils.normalizeBackupName(input);
-                        if (backupName == null) {
-                            backupName = DateUtils.formatMediumDateTime(mContext, System.currentTimeMillis());
-                        }
-                        operationInfo.backupNames = new String[]{backupName};
-                        mViewModel.prepareForOperation(operationInfo);
-                    })
-                    .show();
+            flags.addFlag(BackupFlags.BACKUP_MULTIPLE);
+            operationInfo.flags = flags.getFlags();
+            String backupName = requestedBackupName;
+            if (backupName == null) {
+                backupName = DateUtils.formatMediumDateTime(mContext, System.currentTimeMillis());
+            }
+            operationInfo.backupNames = new String[]{backupName};
+            mViewModel.prepareForOperation(operationInfo);
         } else {
             // Base backup requested
             int baseBackupCount = mViewModel.getBackupInfoList().size() - mViewModel.getAppsWithoutBackups().size();

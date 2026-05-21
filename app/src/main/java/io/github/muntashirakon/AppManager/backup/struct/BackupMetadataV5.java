@@ -21,6 +21,7 @@ import androidx.annotation.WorkerThread;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -348,7 +349,16 @@ public class BackupMetadataV5 implements LocalizedString {
     @NonNull
     @WorkerThread
     public CharSequence toLocalizedString(@NonNull Context context) {
-        CharSequence titleText = isBaseBackup() ? context.getText(R.string.base_backup) : Objects.requireNonNull(metadata.backupName);
+        CharSequence titleText = null;
+        if (info.mBackupItem != null) {
+            try {
+                titleText = info.mBackupItem.getDisplayName();
+            } catch (IOException ignore) {
+            }
+        }
+        if (TextUtils.isEmpty(titleText)) {
+            titleText = isBaseBackup() ? context.getText(R.string.base_backup) : Objects.requireNonNull(metadata.backupName);
+        }
 
         StringBuilder subtitleText = new StringBuilder()
                 .append(DateUtils.formatDateTime(context, info.backupTime))
