@@ -5,7 +5,6 @@ package io.github.muntashirakon.AppManager.backup.dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
-import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +22,7 @@ import java.util.Set;
 
 import io.github.muntashirakon.AppManager.R;
 import io.github.muntashirakon.AppManager.backup.BackupFlags;
+import io.github.muntashirakon.AppManager.backup.BackupUtils;
 import io.github.muntashirakon.AppManager.batchops.BatchOpsManager;
 import io.github.muntashirakon.AppManager.utils.DateUtils;
 import io.github.muntashirakon.dialog.TextInputDialogBuilder;
@@ -92,14 +92,12 @@ public class BackupFragment extends Fragment {
             // user has a choice between overwriting the existing backup or create a new one
             // TODO(18/9/20): Add overwrite option
             new TextInputDialogBuilder(mContext, R.string.input_backup_name)
-                    .setTitle(R.string.backup)
+                    .setTitle(R.string.input_backup_name)
                     .setHelperText(R.string.input_backup_name_description)
                     .setPositiveButton(R.string.ok, (dialog, which, input, isChecked) -> {
-                        String backupName;
-                        if (TextUtils.isEmpty(input)) {
+                        String backupName = BackupUtils.normalizeBackupName(input);
+                        if (backupName == null) {
                             backupName = DateUtils.formatMediumDateTime(mContext, System.currentTimeMillis());
-                        } else {
-                            backupName = input.toString();
                         }
                         operationInfo.backupNames = new String[]{backupName};
                         mViewModel.prepareForOperation(operationInfo);

@@ -10,6 +10,21 @@ import org.robolectric.RobolectricTestRunner;
 
 @RunWith(RobolectricTestRunner.class)
 public class BackupUtilsTest {
+    @Test
+    public void normalizeBackupName() {
+        assertNull(BackupUtils.normalizeBackupName(null));
+        assertNull(BackupUtils.normalizeBackupName(""));
+        assertNull(BackupUtils.normalizeBackupName("   \n\t  "));
+        assertEquals("Before Android 16 update", BackupUtils.normalizeBackupName("  Before Android 16 update  "));
+        assertEquals("2026-05-21 nightly", BackupUtils.normalizeBackupName("2026-05-21 nightly"));
+    }
+
+    @Test
+    public void getV4SanitizedBackupName_keepsStorageNameSafe() {
+        assertEquals("Before_Android_16_update", BackupUtils.getV4SanitizedBackupName("Before Android 16 update"));
+        assertEquals("Release_rollback", BackupUtils.getV4SanitizedBackupName("Release/rollback"));
+        assertEquals("2026-05-21_nightly", BackupUtils.getV4SanitizedBackupName("2026-05-21 nightly"));
+    }
 
     @Test
     public void getWritableDataDirectory() {

@@ -61,6 +61,16 @@ public final class BackupUtils {
         return getV4SanitizedBackupName(backupName);
     }
 
+    @Nullable
+    @Contract("null -> null")
+    public static String normalizeBackupName(@Nullable CharSequence backupName) {
+        if (backupName == null) {
+            return null;
+        }
+        String trimmedBackupName = backupName.toString().trim();
+        return TextUtils.isEmpty(trimmedBackupName) ? null : trimmedBackupName;
+    }
+
     @NonNull
     public static String getV4BackupName(@UserIdInt int userId, @Nullable String backupName) {
         if (backupName == null) {
