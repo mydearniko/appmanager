@@ -20,6 +20,7 @@ run
 dist
 .nyc_output
 .basement
+.worktrees/
 config.local.js
 basement_dist
 *.apk
