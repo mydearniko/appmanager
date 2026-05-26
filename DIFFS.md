@@ -11,6 +11,11 @@ Comparison base when this file was created:
 
 If the original upstream remote is added later, treat this file as applying to the local custom branch relative to the upstream AppManager `master` as well. After resolving an upstream update, re-check `git diff upstream/master..HEAD` or `git diff master..HEAD` and update this file for any intentional custom changes.
 
+Current upstream sync:
+
+- Upstream remote: `https://github.com/MuntashirAkon/AppManager.git`
+- Last merged upstream `master`: `eff7f587c56903907b26a104db40c959ba0ea746`
+
 ## Required Custom Behavior
 
 ### Friendly Backup Names
