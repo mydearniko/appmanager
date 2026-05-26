@@ -75,6 +75,9 @@ Required behavior:
   - use metadata to set base-backup state and detailed restore rows.
 - For multi-package mode, avoid metadata reads and call `BackupInfo.loadBackupsFromDb(backups)`.
 - Always load installed application state through `BackupInfo.loadApplications(apps)`.
+- If the no-lock DB read does not include an installed app row, check PackageManager for that package/user and append
+  installed app info before calling `BackupInfo.loadApplications(apps)`. This keeps the dialog fast while preventing
+  stale DB state from hiding the Backup action and showing a restore-only UI for installed apps.
 - A package must remain eligible when it is installed, has a base backup from DB rows, or has full metadata entries.
 - `mWorstBackupFlag` must use `BackupInfo.getBaseBackupFlags()` instead of scanning metadata in the multi-package path.
 
@@ -134,6 +137,8 @@ Required behavior:
 - Comments must make clear that callers must tolerate stale data.
 - `BackupRestoreDialogViewModel` must use these no-lock methods for targeted app reads in the dialog open path.
 - `BackupRestoreDialogViewModel` must use `getAllBackupsNoLock(String packageName)` for package backup rows in the dialog open path.
+- `BackupRestoreDialogViewModel` must tolerate stale no-lock app rows by falling back to PackageManager when no installed
+  app row is present, so installed apps with existing backups are classified as backup-and-restore instead of restore-only.
 
 Files:
 
@@ -169,6 +174,19 @@ Required coverage:
 - `toLocalizedString(context, false)` does not include the localized size label.
 - The no-size summary must not call `Info.getBackupSize()`.
 - Other useful details, such as version text, remain present.
+
+### BackupRestoreDialogViewModelTest
+
+File:
+
+- `app/src/test/java/io/github/muntashirakon/AppManager/backup/dialog/BackupRestoreDialogViewModelTest.java`
+
+Required coverage:
+
+- Missing installed app rows from no-lock DB reads are supplemented with PackageManager fallback data.
+- The PackageManager fallback is not called when DB rows already show the app as installed.
+- Backup-only/uninstalled rows are preserved when PackageManager cannot find an installed app.
+- Fallback installed app info makes `BackupInfo` classify the package as installed.
 
 ### AppDbTest
 

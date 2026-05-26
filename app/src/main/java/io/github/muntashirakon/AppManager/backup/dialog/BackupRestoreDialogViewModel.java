@@ -2,8 +2,16 @@
 
 package io.github.muntashirakon.AppManager.backup.dialog;
 
+import static io.github.muntashirakon.AppManager.compat.PackageManagerCompat.MATCH_DISABLED_COMPONENTS;
+import static io.github.muntashirakon.AppManager.compat.PackageManagerCompat.MATCH_STATIC_SHARED_AND_SDK_LIBRARIES;
+import static io.github.muntashirakon.AppManager.compat.PackageManagerCompat.MATCH_UNINSTALLED_PACKAGES;
+
 import android.annotation.UserIdInt;
 import android.app.Application;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.os.RemoteException;
 import android.os.PowerManager;
 import android.os.UserHandleHidden;
 
@@ -28,6 +36,8 @@ import java.util.concurrent.Future;
 import io.github.muntashirakon.AppManager.backup.BackupFlags;
 import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
 import io.github.muntashirakon.AppManager.batchops.BatchOpsManager;
+import io.github.muntashirakon.AppManager.compat.ApplicationInfoCompat;
+import io.github.muntashirakon.AppManager.compat.PackageManagerCompat;
 import io.github.muntashirakon.AppManager.db.entity.App;
 import io.github.muntashirakon.AppManager.db.entity.Backup;
 import io.github.muntashirakon.AppManager.db.utils.AppDb;
@@ -38,6 +48,12 @@ import io.github.muntashirakon.AppManager.utils.CpuUtils;
 import io.github.muntashirakon.AppManager.utils.ThreadUtils;
 
 public class BackupRestoreDialogViewModel extends AndroidViewModel {
+    @FunctionalInterface
+    interface InstalledAppLookup {
+        @Nullable
+        App getInstalledApp(@NonNull String packageName, @UserIdInt int userId);
+    }
+
     public static class OperationInfo {
         @BackupRestoreDialogFragment.ActionMode
         public int mode;
@@ -195,7 +211,10 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
             }
             // Add new entry
             backupInfo = new BackupInfo(userPackagePair.getPackageName(), userPackagePair.getUserId());
-            List<App> apps = appDb.getAllApplicationsNoLock(userPackagePair.getPackageName(), userPackagePair.getUserId());
+            String packageName = userPackagePair.getPackageName();
+            int userId = userPackagePair.getUserId();
+            List<App> apps = ensureInstalledAppInfo(appDb.getAllApplicationsNoLock(packageName, userId), packageName, userId,
+                    this::getInstalledAppFromPackageManager);
             List<Backup> backups = appDb.getAllBackupsNoLock(userPackagePair.getPackageName());
             if (ThreadUtils.isInterrupted()) {
                 return;
@@ -319,6 +338,58 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
         }
         // Send status
         mBackupInfoStateLiveData.postValue(status);
+    }
+
+    @NonNull
+    static List<App> ensureInstalledAppInfo(@NonNull List<App> apps, @NonNull String packageName, @UserIdInt int userId,
+                                            @NonNull InstalledAppLookup lookup) {
+        for (App app : apps) {
+            if (app.isInstalled) {
+                return apps;
+            }
+        }
+        App installedApp = lookup.getInstalledApp(packageName, userId);
+        if (installedApp == null || !installedApp.isInstalled) {
+            return apps;
+        }
+        List<App> appsWithInstalledFallback = new ArrayList<>(apps.size() + 1);
+        appsWithInstalledFallback.addAll(apps);
+        appsWithInstalledFallback.add(installedApp);
+        return appsWithInstalledFallback;
+    }
+
+    @WorkerThread
+    @Nullable
+    private App getInstalledAppFromPackageManager(@NonNull String packageName, @UserIdInt int userId) {
+        try {
+            PackageInfo packageInfo = PackageManagerCompat.getPackageInfo(packageName,
+                    PackageManager.GET_META_DATA | MATCH_DISABLED_COMPONENTS | MATCH_UNINSTALLED_PACKAGES
+                            | MATCH_STATIC_SHARED_AND_SDK_LIBRARIES, userId);
+            ApplicationInfo applicationInfo = packageInfo.applicationInfo;
+            if (applicationInfo == null || !ApplicationInfoCompat.isInstalled(applicationInfo)) {
+                return null;
+            }
+            App app = new App();
+            app.packageName = applicationInfo.packageName;
+            app.userId = userId;
+            app.uid = applicationInfo.uid;
+            app.isInstalled = true;
+            app.isOnlyDataInstalled = ApplicationInfoCompat.isOnlyDataInstalled(applicationInfo);
+            app.flags = applicationInfo.flags;
+            app.isEnabled = true;
+            app.packageLabel = ApplicationInfoCompat.loadLabelSafe(applicationInfo, getApplication().getPackageManager()).toString();
+            app.sdk = applicationInfo.targetSdkVersion;
+            app.versionName = packageInfo.versionName;
+            app.versionCode = androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(packageInfo);
+            app.sharedUserId = packageInfo.sharedUserId;
+            app.firstInstallTime = packageInfo.firstInstallTime;
+            app.lastUpdateTime = packageInfo.lastUpdateTime;
+            app.hasActivities = packageInfo.activities != null;
+            app.hasSplits = applicationInfo.splitSourceDirs != null;
+            return app;
+        } catch (PackageManager.NameNotFoundException | RemoteException | SecurityException e) {
+            return null;
+        }
     }
 
     @WorkerThread
