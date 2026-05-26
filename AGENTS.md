@@ -1,5 +1,12 @@
 # Agent Notes
 
+## Custom AppManager Differences
+
+- `DIFFS.md` is required reading before changing code, rebasing, merging, cherry-picking, or resolving conflicts in this repo.
+- Preserve every required custom behavior documented in `DIFFS.md` when pulling or applying updates from the original AppManager `master` branch.
+- If a custom behavior is intentionally added, removed, or changed, update `DIFFS.md` in the same change.
+- Do not treat upstream/master behavior as authoritative when it conflicts with `DIFFS.md`; ask the user before dropping local custom behavior.
+
 ## Android APK Signing
 
 - Persistent local signing key: `app/dev_keystore.jks`.
