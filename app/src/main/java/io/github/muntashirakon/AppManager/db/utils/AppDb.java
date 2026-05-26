@@ -91,6 +91,20 @@ public class AppDb {
         }
     }
 
+    /**
+     * Fetch applications without waiting for the app database refresh lock. The caller must tolerate stale data.
+     */
+    public List<App> getAllApplicationsNoLock(String packageName) {
+        return mAppDao.getAll(packageName);
+    }
+
+    /**
+     * Fetch applications without waiting for the app database refresh lock. The caller must tolerate stale data.
+     */
+    public List<App> getAllApplicationsNoLock(String packageName, @UserIdInt int userId) {
+        return mAppDao.getAll(packageName, userId);
+    }
+
     public List<Backup> getAllBackups() {
         synchronized (sLock) {
             return mBackupDao.getAll();

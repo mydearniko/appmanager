@@ -195,8 +195,8 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
             }
             // Add new entry
             backupInfo = new BackupInfo(userPackagePair.getPackageName(), userPackagePair.getUserId());
-            List<App> apps = appDb.getAllApplications(userPackagePair.getPackageName(), userPackagePair.getUserId());
-            List<Backup> backups = appDb.getAllBackups(userPackagePair.getPackageName());
+            List<App> apps = appDb.getAllApplicationsNoLock(userPackagePair.getPackageName(), userPackagePair.getUserId());
+            List<Backup> backups = appDb.getAllBackupsNoLock(userPackagePair.getPackageName());
             if (ThreadUtils.isInterrupted()) {
                 return;
             }
@@ -244,7 +244,7 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
             if (backupInfo.isInstalled() && backupInfo.userIds.size() == 1) {
                 // A special case where we need to check if we can allow custom users for backups
                 mPreferredUsersForBackup = new int[]{Objects.requireNonNull(backupInfo.userIds.valueAt(0))};
-                List<App> apps = appDb.getAllApplications(backupInfo.packageName);
+                List<App> apps = appDb.getAllApplicationsNoLock(backupInfo.packageName);
                 int userCount = 0;
                 for (App app : apps) {
                     if (app.isInstalled) {
