@@ -8,7 +8,10 @@ import androidx.collection.ArraySet;
 import java.util.Collections;
 import java.util.List;
 
+import io.github.muntashirakon.AppManager.backup.BackupFlags;
 import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
+import io.github.muntashirakon.AppManager.db.entity.App;
+import io.github.muntashirakon.AppManager.db.entity.Backup;
 
 public class BackupInfo {
     @NonNull
@@ -21,6 +24,8 @@ public class BackupInfo {
     private List<BackupMetadataV5> mBackupMetadataList = Collections.emptyList();
     private boolean mInstalled;
     private boolean mHasBaseBackup;
+    @BackupFlags.BackupFlag
+    private int mBaseBackupFlags = 0xffff_ffff;
 
     BackupInfo(@NonNull String packageName, int userId) {
         this.packageName = packageName;
@@ -44,6 +49,34 @@ public class BackupInfo {
 
     public void setBackupMetadataList(@NonNull List<BackupMetadataV5> backupMetadataList) {
         mBackupMetadataList = backupMetadataList;
+    }
+
+    void loadApplications(@NonNull List<App> apps) {
+        if (apps.isEmpty()) {
+            setInstalled(false);
+            return;
+        }
+        for (App app : apps) {
+            setAppLabel(app.packageLabel);
+            setInstalled(isInstalled() | app.isInstalled);
+        }
+    }
+
+    void loadBackupsFromDb(@NonNull List<Backup> backups) {
+        for (Backup backup : backups) {
+            if (packageName.contentEquals(mAppLabel) && backup.label != null) {
+                setAppLabel(backup.label);
+            }
+            if (backup.backupName == null || backup.backupName.isEmpty()) {
+                setHasBaseBackup(true);
+                mBaseBackupFlags &= backup.flags;
+            }
+        }
+    }
+
+    @BackupFlags.BackupFlag
+    int getBaseBackupFlags() {
+        return hasBaseBackup() ? mBaseBackupFlags : 0;
     }
 
     public boolean hasBaseBackup() {

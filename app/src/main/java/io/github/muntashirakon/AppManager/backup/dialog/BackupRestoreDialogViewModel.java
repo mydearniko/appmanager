@@ -171,6 +171,13 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
     private void processPackagesInternal(@NonNull List<UserPackagePair> userPackagePairs) {
         Map<String, BackupInfo> backupInfoMap = new HashMap<>();
         AppDb appDb = new AppDb();
+        Set<String> packageNames = new HashSet<>();
+        for (UserPackagePair userPackagePair : userPackagePairs) {
+            if (!userPackagePair.getPackageName().equals("android")) {
+                packageNames.add(userPackagePair.getPackageName());
+            }
+        }
+        boolean loadFullBackupMetadata = packageNames.size() <= 1;
         // Fetch info
         for (UserPackagePair userPackagePair : userPackagePairs) {
             if (ThreadUtils.isInterrupted()) {
@@ -194,34 +201,30 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
                 return;
             }
             // Fetch backup info
-            List<BackupMetadataV5> metadataList = new ArrayList<>();
-            for (Backup backup : backups) {
-                BackupMetadataV5 metadata;
-                try {
-                    metadata = backup.getItem().getMetadata();
-                    metadataList.add(metadata);
-                } catch (IOException e) {
-                    // Not found
-                    continue;
+            if (loadFullBackupMetadata) {
+                List<BackupMetadataV5> metadataList = new ArrayList<>();
+                for (Backup backup : backups) {
+                    BackupMetadataV5 metadata;
+                    try {
+                        metadata = backup.getItem().getMetadata();
+                        metadataList.add(metadata);
+                    } catch (IOException e) {
+                        // Not found
+                        continue;
+                    }
+                    if (metadata.isBaseBackup()) {
+                        backupInfo.setHasBaseBackup(true);
+                    }
                 }
-                if (metadata.isBaseBackup()) {
-                    backupInfo.setHasBaseBackup(true);
-                }
+                backupInfo.setBackupMetadataList(metadataList);
+            } else {
+                backupInfo.loadBackupsFromDb(backups);
             }
             if (ThreadUtils.isInterrupted()) {
                 return;
             }
-            backupInfo.setBackupMetadataList(metadataList);
-            if (apps.isEmpty()) {
-                backupInfo.setInstalled(false);
-            } else {
-                for (App app : apps) {
-                    backupInfo.setAppLabel(app.packageLabel);
-                    // Installation gets higher priority
-                    backupInfo.setInstalled(backupInfo.isInstalled() | app.isInstalled);
-                }
-            }
-            if (!backupInfo.isInstalled() && backupInfo.getBackupMetadataList().isEmpty()) {
+            backupInfo.loadApplications(apps);
+            if (!backupInfo.isInstalled() && !backupInfo.hasBaseBackup() && backupInfo.getBackupMetadataList().isEmpty()) {
                 // App cannot be backed up or restored
                 continue;
             }
@@ -294,11 +297,7 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
                 }
                 if (backupInfo.hasBaseBackup()) {
                     hasBaseBackup = true;
-                    for (BackupMetadataV5 metadata : backupInfo.getBackupMetadataList()) {
-                        if (metadata.isBaseBackup()) {
-                            mWorstBackupFlag &= metadata.info.flags.getFlags();
-                        }
-                    }
+                    mWorstBackupFlag &= backupInfo.getBaseBackupFlags();
                 } else {
                     mAppsWithoutBackups.add(backupInfo.getAppLabel());
                 }
