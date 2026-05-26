@@ -4,14 +4,38 @@ This file is the custom-branch contract. When rebasing, merging, cherry-picking,
 
 Comparison base when this file was created:
 
-- Base branch: local `master`
+- Base branch: original local `master` before custom work was moved onto `master`
 - Base commit: `bff79d4f805e0cfd70d002a9161e2cc5d6a51cfe`
-- Custom head before this documentation update: `894ea4f8c062e8988339b85a04e7d3c32d32b954`
-- Diff command used: `git diff master..HEAD`
+- First documented custom head: `894ea4f8c062e8988339b85a04e7d3c32d32b954`
+- Original diff command used: `git diff master..HEAD`
 
 If the original upstream remote is added later, treat this file as applying to the local custom branch relative to the upstream AppManager `master` as well. After resolving an upstream update, re-check `git diff upstream/master..HEAD` or `git diff master..HEAD` and update this file for any intentional custom changes.
 
 ## Required Custom Behavior
+
+### Friendly Backup Names
+
+Backup names must support readable labels instead of forcing filename-style names.
+
+Required behavior:
+
+- User-entered backup names are normalized by trimming surrounding whitespace.
+- Empty or whitespace-only backup names normalize to `null`.
+- Friendly names may contain normal readable text, including spaces.
+- Version 4 compatibility paths must still sanitize names only at storage/lookup boundaries where path-safe names are required.
+- Backup creation UI must use the normalized friendly name and keep the existing empty-name fallback.
+- Restore list rows and rename UI must prefer the backup item's display name when present.
+- Rename from the restore dialog must update the backup item's display name instead of renaming the backup storage directory.
+- Clearing the rename input must clear the custom display name.
+
+Files:
+
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/BackupItems.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/BackupUtils.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupFragment.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragment.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/struct/BackupMetadataV5.java`
+- `app/src/main/res/values/strings.xml`
 
 ### Backup/Restore Options Must Open Quickly
 
@@ -152,18 +176,35 @@ Required coverage:
 - `getAllApplicationsNoLock(String, int)` completes while `AppDb.sLock` is held by another thread.
 - The test intentionally uses reflection to hold the private static lock and invoke the no-lock method.
 
+### Backup Name Tests
+
+Files:
+
+- `app/src/test/java/io/github/muntashirakon/AppManager/backup/BackupUtilsTest.java`
+- `app/src/test/java/io/github/muntashirakon/AppManager/backup/BackupManagerTest.java`
+
+Required coverage:
+
+- `BackupUtils.normalizeBackupName(...)` trims readable names.
+- `BackupUtils.normalizeBackupName(...)` returns `null` for empty or whitespace-only input.
+- V4 sanitized backup names remain path-safe.
+- Backup items can persist, read, and clear display names.
+
 ## Planning And Design Documents
 
 These local process documents are also differences from master and should be kept unless intentionally superseded.
 
 Files:
 
+- `docs/superpowers/specs/2026-05-21-backup-names-ui-design.md`
+- `docs/superpowers/plans/2026-05-21-backup-names-ui.md`
 - `docs/superpowers/specs/2026-05-26-backup-restore-open-speed-design.md`
 - `docs/superpowers/plans/2026-05-26-backup-restore-open-speed.md`
 
 Purpose:
 
 - Capture the design and implementation plan for the Backup/Restore open-speed work.
+- Capture the design and implementation plan for friendly backup names.
 - Explain why multi-package classification can use DB rows while single-package restore details still read metadata.
 - Preserve the reasoning for future rebases and conflict resolution.
 
@@ -189,6 +230,8 @@ Use these commands after upstream updates or conflict resolution:
 
 ```sh
 ./gradlew :app:testDebugUnitTest \
+  --tests io.github.muntashirakon.AppManager.backup.BackupManagerTest \
+  --tests io.github.muntashirakon.AppManager.backup.BackupUtilsTest \
   --tests io.github.muntashirakon.AppManager.backup.dialog.BackupInfoTest \
   --tests io.github.muntashirakon.AppManager.backup.dialog.BackupSelectionStateTest \
   --tests io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5Test \
@@ -200,8 +243,8 @@ Use these commands after upstream updates or conflict resolution:
 Useful diff checks:
 
 ```sh
-git diff --name-status master..HEAD
-git diff master..HEAD -- app/src/main/java/io/github/muntashirakon/AppManager/backup app/src/main/java/io/github/muntashirakon/AppManager/db/utils/AppDb.java app/src/test/java/io/github/muntashirakon/AppManager
+git diff --name-status bff79d4f805e0cfd70d002a9161e2cc5d6a51cfe..HEAD
+git diff bff79d4f805e0cfd70d002a9161e2cc5d6a51cfe..HEAD -- app/src/main/java/io/github/muntashirakon/AppManager/backup app/src/main/java/io/github/muntashirakon/AppManager/db/utils/AppDb.java app/src/test/java/io/github/muntashirakon/AppManager
 ```
 
-If an `upstream` remote is added for the original AppManager repository, replace `master` in these diff checks with `upstream/master` when comparing against the latest original code.
+If an `upstream` remote is added for the original AppManager repository, use `upstream/master..HEAD` when comparing against the latest original code.

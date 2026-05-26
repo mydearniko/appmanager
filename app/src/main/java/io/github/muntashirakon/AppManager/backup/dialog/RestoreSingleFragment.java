@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.github.muntashirakon.AppManager.R;
+import io.github.muntashirakon.AppManager.backup.BackupItems;
 import io.github.muntashirakon.AppManager.backup.BackupFlags;
 import io.github.muntashirakon.AppManager.backup.BackupUtils;
 import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
@@ -94,7 +95,7 @@ public class RestoreSingleFragment extends Fragment {
             unfreezeMenuItem.setEnabled(frozenCount > 0);
 
             renameMenuItem.setOnMenuItemClickListener(item -> {
-                handleRename(adapter, adapter.getSelectedBackups().get(0));
+                handleRename(adapter.getSelectedBackups().get(0), adapter);
                 return true;
             });
             freezeMenuItem.setOnMenuItemClickListener(item -> {
@@ -157,26 +158,32 @@ public class RestoreSingleFragment extends Fragment {
                 .show();
     }
 
-    private void handleRename(@NonNull BackupAdapter adapter, @NonNull BackupMetadataV5 selectedBackup) {
-        String backupName = selectedBackup.metadata.backupName != null ? selectedBackup.metadata.backupName : "";
+    private void handleRename(@NonNull BackupMetadataV5 selectedBackup, @NonNull BackupAdapter adapter) {
+        BackupItems.BackupItem backupItem = selectedBackup.info.getBackupItem();
+        CharSequence currentName;
+        try {
+            currentName = backupItem.getDisplayName();
+        } catch (IOException e) {
+            currentName = null;
+        }
+        if (currentName == null && !selectedBackup.isBaseBackup()) {
+            currentName = selectedBackup.metadata.backupName;
+        }
         new TextInputDialogBuilder(mContext, R.string.input_backup_name)
                 .setTitle(R.string.rename)
-                .setInputText(backupName)
-                .setPositiveButton(R.string.rename, (dialog, which, inputText, isChecked) -> {
-                    String newBackupName = inputText != null ? inputText.toString() : "";
-                    Context context = mContext.getApplicationContext();
+                .setHelperText(R.string.input_backup_name_rename_description)
+                .setInputText(currentName)
+                .setPositiveButton(R.string.rename, (dialog, which, input, isChecked) -> {
+                    CharSequence displayName = BackupUtils.normalizeBackupName(input);
                     ThreadUtils.postOnBackgroundThread(() -> {
                         try {
-                            BackupMetadataV5 renamedBackup = BackupUtils.renameBackup(context, selectedBackup, newBackupName);
+                            backupItem.setDisplayName(displayName);
                             ThreadUtils.postOnMainThread(() -> {
-                                adapter.replaceBackup(selectedBackup, renamedBackup);
+                                adapter.notifyItemRangeChanged(0, adapter.getItemCount(), AdapterUtils.STUB);
                                 UIUtils.displayShortToast(R.string.renamed_successfully);
                             });
                         } catch (IOException e) {
-                            ThreadUtils.postOnMainThread(() -> {
-                                String errorMessage = e.getLocalizedMessage();
-                                UIUtils.displayLongToast(errorMessage != null ? errorMessage : mContext.getString(R.string.failed));
-                            });
+                            ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(e.getLocalizedMessage()));
                         }
                     });
                 })
