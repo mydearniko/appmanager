@@ -300,7 +300,7 @@ public class RestoreSingleFragment extends Fragment {
             BackupMetadataV5 metadata = mBackups.get(position);
             boolean isSelected = mSelectionState.isSelected(position);
             holder.item.setChecked(isSelected);
-            holder.item.setText(metadata.toLocalizedString(holder.item.getContext()));
+            holder.item.setText(metadata.toLocalizedString(holder.item.getContext(), false));
             holder.item.setOnClickListener(v -> {
                 if (!mSelectionState.onItemClicked(position)) {
                     return;

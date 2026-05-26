@@ -352,6 +352,11 @@ public class BackupMetadataV5 implements LocalizedString {
     @NonNull
     @WorkerThread
     public CharSequence toLocalizedString(@NonNull Context context) {
+        return toLocalizedString(context, true);
+    }
+
+    @NonNull
+    public CharSequence toLocalizedString(@NonNull Context context, boolean includeBackupSize) {
         CharSequence titleText = isBaseBackup() ? context.getText(R.string.base_backup) : Objects.requireNonNull(metadata.backupName);
 
         StringBuilder subtitleText = new StringBuilder()
@@ -373,9 +378,11 @@ public class BackupMetadataV5 implements LocalizedString {
         } else {
             subtitleText.append(", ").append(context.getString(R.string.gz_bz2_compressed, getReadableTarType(info.tarType)));
         }
-        subtitleText.append(", ")
-                .append(context.getString(R.string.size)).append(LangUtils.getSeparatorString()).append(Formatter
-                        .formatFileSize(context, info.getBackupSize()));
+        if (includeBackupSize) {
+            subtitleText.append(", ")
+                    .append(context.getString(R.string.size)).append(LangUtils.getSeparatorString()).append(Formatter
+                            .formatFileSize(context, info.getBackupSize()));
+        }
 
         if (info.isFrozen()) {
             subtitleText.append(", ").append(context.getText(R.string.frozen));
