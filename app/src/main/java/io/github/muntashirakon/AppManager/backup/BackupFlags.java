@@ -9,11 +9,14 @@ import android.text.SpannableStringBuilder;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.util.Pair;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -77,6 +80,9 @@ public final class BackupFlags {
         put(BACKUP_CUSTOM_USERS, new Pair<>(R.string.backup_custom_users, R.string.backup_custom_users_description));
         put(BACKUP_NO_SIGNATURE_CHECK, new Pair<>(R.string.skip_signature_checks, R.string.backup_skip_signature_checks_description));
     }};
+    private static final Object sSupportedBackupFlagsLock = new Object();
+    @Nullable
+    private static volatile List<Integer> sSupportedBackupFlagsCache;
 
     @BackupFlag
     public static int getSupportedBackupFlags() {
@@ -90,6 +96,21 @@ public final class BackupFlags {
 
     @NonNull
     public static List<Integer> getSupportedBackupFlagsAsArray() {
+        List<Integer> backupFlags = sSupportedBackupFlagsCache;
+        if (backupFlags == null) {
+            synchronized (sSupportedBackupFlagsLock) {
+                backupFlags = sSupportedBackupFlagsCache;
+                if (backupFlags == null) {
+                    backupFlags = Collections.unmodifiableList(loadSupportedBackupFlagsAsArray());
+                    sSupportedBackupFlagsCache = backupFlags;
+                }
+            }
+        }
+        return new ArrayList<>(backupFlags);
+    }
+
+    @NonNull
+    private static List<Integer> loadSupportedBackupFlagsAsArray() {
         List<Integer> backupFlags = new ArrayList<>();
         backupFlags.add(BACKUP_APK_FILES);
         if (SelfPermissions.canWriteToDataData()) {
@@ -110,6 +131,15 @@ public final class BackupFlags {
         }
         backupFlags.add(BACKUP_NO_SIGNATURE_CHECK);
         return backupFlags;
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    static void setSupportedBackupFlagsCacheForTest(@Nullable List<Integer> backupFlags) {
+        synchronized (sSupportedBackupFlagsLock) {
+            sSupportedBackupFlagsCache = backupFlags != null
+                    ? Collections.unmodifiableList(new ArrayList<>(backupFlags))
+                    : null;
+        }
     }
 
     @NonNull
@@ -302,10 +332,11 @@ public final class BackupFlags {
      * Remove unsupported flags from the given list of flags
      */
     private static int getSanitizedFlags(int flags) {
-        if (!SelfPermissions.canWriteToDataData()) {
+        List<Integer> supportedBackupFlags = getSupportedBackupFlagsAsArray();
+        if (!supportedBackupFlags.contains(BACKUP_INT_DATA)) {
             flags &= ~BACKUP_INT_DATA;
         }
-        if (Users.getUsersIds().length == 1) {
+        if (!supportedBackupFlags.contains(BACKUP_CUSTOM_USERS)) {
             flags &= ~BACKUP_CUSTOM_USERS;
         }
         return migrate(flags);

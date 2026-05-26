@@ -39,12 +39,16 @@ android {
             storePassword 'kJCp!Bda#PBdN2RLK%yMK@hatq&69E'
             keyPassword 'kJCp!Bda#PBdN2RLK%yMK@hatq&69E'
             keyAlias 'key0'
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             resValue "string", "app_name", "App Manager"
         }

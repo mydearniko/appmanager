@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.resources.MaterialAttributes;
 
 import java.io.IOException;
@@ -31,10 +32,13 @@ import java.util.List;
 
 import io.github.muntashirakon.AppManager.R;
 import io.github.muntashirakon.AppManager.backup.BackupFlags;
+import io.github.muntashirakon.AppManager.backup.BackupUtils;
 import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
 import io.github.muntashirakon.AppManager.batchops.BatchOpsManager;
+import io.github.muntashirakon.AppManager.utils.ThreadUtils;
 import io.github.muntashirakon.AppManager.utils.UIUtils;
 import io.github.muntashirakon.dialog.SearchableFlagsDialogBuilder;
+import io.github.muntashirakon.dialog.TextInputDialogBuilder;
 import io.github.muntashirakon.util.AdapterUtils;
 
 public class RestoreSingleFragment extends Fragment {
@@ -60,14 +64,18 @@ public class RestoreSingleFragment extends Fragment {
         MaterialButton restoreButton = view.findViewById(R.id.action_restore);
         MaterialButton deleteButton = view.findViewById(R.id.action_delete);
         MaterialButton moreButton = view.findViewById(R.id.more);
+        MaterialSwitch multipleSelectionSwitch = view.findViewById(R.id.action_multiple_selection);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(mContext, LinearLayoutManager.VERTICAL, false));
         BackupAdapter adapter = new BackupAdapter(mContext, mViewModel.getBackupInfo().getBackupMetadataList(),
                 (metadata, selectionCount, added) -> {
                     restoreButton.setEnabled(selectionCount == 1);
                     deleteButton.setEnabled(selectionCount > 0);
+                    moreButton.setEnabled(selectionCount > 0);
                 });
         recyclerView.setAdapter(adapter);
+        multipleSelectionSwitch.setVisibility(adapter.getItemCount() > 1 ? View.VISIBLE : View.GONE);
+        multipleSelectionSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> adapter.setMultipleSelectionEnabled(isChecked));
 
         restoreButton.setOnClickListener(v -> handleRestore(adapter.getSelectedBackups().get(0)));
         deleteButton.setOnClickListener(v -> handleDelete(adapter.getSelectedBackups()));
@@ -77,18 +85,23 @@ public class RestoreSingleFragment extends Fragment {
 
             PopupMenu popupMenu = new PopupMenu(mContext, v);
             Menu menu = popupMenu.getMenu();
+            MenuItem renameMenuItem = menu.add(R.string.rename);
             MenuItem freezeMenuItem = menu.add(R.string.freeze);
             MenuItem unfreezeMenuItem = menu.add(R.string.unfreeze);
 
+            renameMenuItem.setEnabled(total == 1);
             freezeMenuItem.setEnabled((total - frozenCount) > 0);
             unfreezeMenuItem.setEnabled(frozenCount > 0);
 
+            renameMenuItem.setOnMenuItemClickListener(item -> {
+                handleRename(adapter, adapter.getSelectedBackups().get(0));
+                return true;
+            });
             freezeMenuItem.setOnMenuItemClickListener(item -> {
                 List<BackupMetadataV5> selectedBackups = adapter.getSelectedBackups();
                 for (BackupMetadataV5 metadata : selectedBackups) {
                     try {
                         metadata.info.getBackupItem().freeze();
-                        ++adapter.mFrozenBackupSelectionCount;
                     } catch (IOException ignore) {
                     }
                 }
@@ -100,7 +113,6 @@ public class RestoreSingleFragment extends Fragment {
                 for (BackupMetadataV5 metadata : selectedBackups) {
                     try {
                         metadata.info.getBackupItem().unfreeze();
-                        --adapter.mFrozenBackupSelectionCount;
                     } catch (IOException ignore) {
                     }
                 }
@@ -145,6 +157,33 @@ public class RestoreSingleFragment extends Fragment {
                 .show();
     }
 
+    private void handleRename(@NonNull BackupAdapter adapter, @NonNull BackupMetadataV5 selectedBackup) {
+        String backupName = selectedBackup.metadata.backupName != null ? selectedBackup.metadata.backupName : "";
+        new TextInputDialogBuilder(mContext, R.string.input_backup_name)
+                .setTitle(R.string.rename)
+                .setInputText(backupName)
+                .setPositiveButton(R.string.rename, (dialog, which, inputText, isChecked) -> {
+                    String newBackupName = inputText != null ? inputText.toString() : "";
+                    Context context = mContext.getApplicationContext();
+                    ThreadUtils.postOnBackgroundThread(() -> {
+                        try {
+                            BackupMetadataV5 renamedBackup = BackupUtils.renameBackup(context, selectedBackup, newBackupName);
+                            ThreadUtils.postOnMainThread(() -> {
+                                adapter.replaceBackup(selectedBackup, renamedBackup);
+                                UIUtils.displayShortToast(R.string.renamed_successfully);
+                            });
+                        } catch (IOException e) {
+                            ThreadUtils.postOnMainThread(() -> {
+                                String errorMessage = e.getLocalizedMessage();
+                                UIUtils.displayLongToast(errorMessage != null ? errorMessage : mContext.getString(R.string.failed));
+                            });
+                        }
+                    });
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
     private void handleDelete(List<BackupMetadataV5> selectedBackups) {
         new MaterialAlertDialogBuilder(mContext)
                 .setTitle(R.string.delete_backup)
@@ -169,49 +208,75 @@ public class RestoreSingleFragment extends Fragment {
             void onSelectionChanged(@Nullable BackupMetadataV5 metadata, int selectionCount, boolean added);
         }
 
-        private final int mLayoutId;
+        private static final int VIEW_TYPE_SINGLE = 0;
+        private static final int VIEW_TYPE_MULTIPLE = 1;
+
+        private final int mSingleChoiceLayoutId;
+        private final int mMultiChoiceLayoutId;
         @NonNull
         private final List<BackupMetadataV5> mBackups = new ArrayList<>();
         @NonNull
-        private final List<Integer> mSelectedPositions = new ArrayList<>();
-        @NonNull
         private final OnSelectionListener mSelectionListener;
-
-        private int mFrozenBackupSelectionCount = 0;
+        @NonNull
+        private final BackupSelectionState mSelectionState;
 
         @SuppressLint("RestrictedApi")
         public BackupAdapter(@NonNull Context context, @NonNull List<BackupMetadataV5> backups,
                              @NonNull OnSelectionListener selectionListener) {
             mSelectionListener = selectionListener;
-            mLayoutId = MaterialAttributes.resolveInteger(context, androidx.appcompat.R.attr.multiChoiceItemLayout,
+            mSingleChoiceLayoutId = MaterialAttributes.resolveInteger(context, androidx.appcompat.R.attr.singleChoiceItemLayout,
+                    com.google.android.material.R.layout.mtrl_alert_select_dialog_singlechoice);
+            mMultiChoiceLayoutId = MaterialAttributes.resolveInteger(context, androidx.appcompat.R.attr.multiChoiceItemLayout,
                     com.google.android.material.R.layout.mtrl_alert_select_dialog_multichoice);
-            mSelectionListener.onSelectionChanged(null, mSelectedPositions.size(), false);
+            int initialSelection = -1;
             for (int i = 0; i < backups.size(); ++i) {
                 BackupMetadataV5 backup = backups.get(i);
                 mBackups.add(backup);
-                if (backup.isBaseBackup()) {
-                    mSelectedPositions.add(i);
-                    if (backup.info.isFrozen()) {
-                        ++mFrozenBackupSelectionCount;
-                    }
-                    mSelectionListener.onSelectionChanged(backup, mSelectedPositions.size(), true);
+                if (initialSelection == -1 && backup.isBaseBackup()) {
+                    initialSelection = i;
                 }
             }
+            mSelectionState = new BackupSelectionState(mBackups.size(), initialSelection);
+            mSelectionListener.onSelectionChanged(null, mSelectionState.selectionCount(), false);
             notifyItemRangeInserted(0, mBackups.size());
         }
 
         public int selectionCount() {
-            return mSelectedPositions.size();
+            return mSelectionState.selectionCount();
         }
 
         public int getFrozenBackupSelectionCount() {
-            return mFrozenBackupSelectionCount;
+            int frozenBackupSelectionCount = 0;
+            for (int position : mSelectionState.getSelectedPositions()) {
+                if (mBackups.get(position).info.isFrozen()) {
+                    ++frozenBackupSelectionCount;
+                }
+            }
+            return frozenBackupSelectionCount;
+        }
+
+        @SuppressLint("NotifyDataSetChanged")
+        public void setMultipleSelectionEnabled(boolean enabled) {
+            if (!mSelectionState.setMultipleSelectionEnabled(enabled)) {
+                return;
+            }
+            notifyDataSetChanged();
+            mSelectionListener.onSelectionChanged(null, mSelectionState.selectionCount(), false);
+        }
+
+        public void replaceBackup(@NonNull BackupMetadataV5 oldBackup, @NonNull BackupMetadataV5 newBackup) {
+            int position = mBackups.indexOf(oldBackup);
+            if (position == -1) {
+                return;
+            }
+            mBackups.set(position, newBackup);
+            notifyItemChanged(position, AdapterUtils.STUB);
         }
 
         @NonNull
         public List<BackupMetadataV5> getSelectedBackups() {
             List<BackupMetadataV5> selectedBackups = new ArrayList<>();
-            for (int position : mSelectedPositions) {
+            for (int position : mSelectionState.getSelectedPositions()) {
                 selectedBackups.add(mBackups.get(position));
             }
             return selectedBackups;
@@ -220,33 +285,28 @@ public class RestoreSingleFragment extends Fragment {
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext()).inflate(mLayoutId, parent, false);
+            int layoutId = viewType == VIEW_TYPE_MULTIPLE ? mMultiChoiceLayoutId : mSingleChoiceLayoutId;
+            View view = LayoutInflater.from(parent.getContext()).inflate(layoutId, parent, false);
             return new ViewHolder(view);
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            return mSelectionState.isMultipleSelectionEnabled() ? VIEW_TYPE_MULTIPLE : VIEW_TYPE_SINGLE;
         }
 
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             BackupMetadataV5 metadata = mBackups.get(position);
-            boolean isSelected = mSelectedPositions.contains(position);
+            boolean isSelected = mSelectionState.isSelected(position);
             holder.item.setChecked(isSelected);
             holder.item.setText(metadata.toLocalizedString(holder.item.getContext()));
             holder.item.setOnClickListener(v -> {
-                if (isSelected) {
-                    // Now unselected
-                    mSelectedPositions.remove((Integer) position);
-                    if (metadata.info.isFrozen()) {
-                        --mFrozenBackupSelectionCount;
-                    }
-                    mSelectionListener.onSelectionChanged(metadata, mSelectedPositions.size(), false);
-                } else {
-                    // Now selected
-                    mSelectedPositions.add(position);
-                    if (metadata.info.isFrozen()) {
-                        ++mFrozenBackupSelectionCount;
-                    }
-                    mSelectionListener.onSelectionChanged(metadata, mSelectedPositions.size(), true);
+                if (!mSelectionState.onItemClicked(position)) {
+                    return;
                 }
-                notifyItemChanged(position, AdapterUtils.STUB);
+                mSelectionListener.onSelectionChanged(metadata, mSelectionState.selectionCount(), !isSelected);
+                notifyItemRangeChanged(0, getItemCount(), AdapterUtils.STUB);
             });
         }
 

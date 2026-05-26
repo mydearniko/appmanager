@@ -88,12 +88,12 @@ public class OABConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("OAndBackup", metadataV5.metadata.backupName);
-        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles())));
-        List<String> files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(0)));
+        List<String> files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(0)));
         Collections.sort(files);
         assertEquals(internalStorage, files);
-        files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(1)));
+        files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(1)));
         Collections.sort(files);
         assertEquals(externalStorage, files);
     }
@@ -114,11 +114,11 @@ public class OABConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("OAndBackup", metadataV5.metadata.backupName);
-        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles())));
-        List<String> files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(0)));
+        List<String> files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(0)));
         assertEquals(internalStorage, files);
-        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
     }
 
     @Test
@@ -138,10 +138,10 @@ public class OABConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("OAndBackup", metadataV5.metadata.backupName);
-        List<String> files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(0)));
+        List<String> files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(0)));
         assertEquals(internalStorage, files);
-        assertFalse(newBackupLocation.hasFile("source.tar.gz.0"));
-        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+        assertFalse(newBackupLocation.hasFile("source.tar.0"));
+        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
     }
 
     @Test
@@ -159,9 +159,9 @@ public class OABConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("OAndBackup", metadataV5.metadata.backupName);
-        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles())));
-        assertFalse(newBackupLocation.hasFile("data0.tar.gz.0"));
-        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+        assertFalse(newBackupLocation.hasFile("data0.tar.0"));
+        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
     }
 }

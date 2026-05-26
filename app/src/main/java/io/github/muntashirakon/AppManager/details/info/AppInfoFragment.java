@@ -1006,7 +1006,8 @@ public class AppInfoFragment extends Fragment implements SwipeRefreshLayout.OnRe
                     .setOnClickListener(v -> {
                         BackupRestoreDialogFragment fragment = BackupRestoreDialogFragment.getInstance(
                                 Collections.singletonList(new UserPackagePair(mPackageName, mUserId)),
-                                BackupRestoreDialogFragment.MODE_RESTORE | BackupRestoreDialogFragment.MODE_DELETE);
+                                BackupRestoreDialogFragment.MODE_BACKUP | BackupRestoreDialogFragment.MODE_RESTORE
+                                        | BackupRestoreDialogFragment.MODE_DELETE);
                         fragment.setOnActionBeginListener(mode -> showProgressIndicator(true));
                         fragment.setOnActionCompleteListener((mode, failedPackages) -> showProgressIndicator(false));
                         fragment.show(getParentFragmentManager(), BackupRestoreDialogFragment.TAG);

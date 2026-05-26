@@ -16,17 +16,25 @@ import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
 
 import org.jetbrains.annotations.Contract;
+import org.json.JSONException;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
+import io.github.muntashirakon.AppManager.R;
 import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
 import io.github.muntashirakon.AppManager.db.entity.Backup;
 import io.github.muntashirakon.AppManager.db.utils.AppDb;
@@ -35,16 +43,19 @@ import io.github.muntashirakon.AppManager.misc.OsEnvironment;
 import io.github.muntashirakon.AppManager.users.Users;
 import io.github.muntashirakon.AppManager.utils.ArrayUtils;
 import io.github.muntashirakon.AppManager.utils.BroadcastUtils;
+import io.github.muntashirakon.AppManager.utils.DigestUtils;
 import io.github.muntashirakon.AppManager.utils.TarUtils;
 import io.github.muntashirakon.AppManager.utils.Utils;
 import io.github.muntashirakon.io.Path;
+import io.github.muntashirakon.io.PathReader;
+import io.github.muntashirakon.io.PathWriter;
 import io.github.muntashirakon.io.Paths;
 
 public final class BackupUtils {
     public static final String TAG = BackupUtils.class.getSimpleName();
 
-    public static final String[] TAR_TYPES = new String[]{TarUtils.TAR_GZIP, TarUtils.TAR_BZIP2, TarUtils.TAR_ZSTD};
-    public static final String[] TAR_TYPES_READABLE = new String[]{"GZip", "BZip2", "Zstandard"};
+    public static final String[] TAR_TYPES = new String[]{TarUtils.TAR_NONE, TarUtils.TAR_GZIP, TarUtils.TAR_BZIP2, TarUtils.TAR_ZSTD};
+    public static final String[] TAR_TYPES_READABLE = new String[]{"Uncompressed", "GZip", "BZip2", "Zstandard"};
 
     private static final Pattern UUID_PATTERN = Pattern.compile("[a-f\\d]{8}(-[a-f\\d]{4}){3}-[a-f\\d]{12}");
 
@@ -127,7 +138,7 @@ public final class BackupUtils {
     public static String getReadableTarType(@TarUtils.TarType String tarType) {
         int i = ArrayUtils.indexOf(TAR_TYPES, tarType);
         if (i == -1) {
-            return "GZip";
+            return "Uncompressed";
         }
         return TAR_TYPES_READABLE[i];
     }
@@ -185,6 +196,106 @@ public final class BackupUtils {
         appDb.deleteBackup(Backup.fromBackupMetadataV5(metadata));
         appDb.updateApplication(context, metadata.metadata.packageName);
         BroadcastUtils.sendDbPackageAltered(context, new String[]{metadata.metadata.packageName});
+    }
+
+    @WorkerThread
+    @NonNull
+    public static BackupMetadataV5 renameBackup(@NonNull Context context,
+                                                @NonNull BackupMetadataV5 metadata,
+                                                @NonNull String backupName) throws IOException {
+        backupName = backupName.trim();
+        if (TextUtils.isEmpty(backupName)) {
+            throw new IOException(context.getString(R.string.backup_name_cannot_be_empty));
+        }
+        if (metadata.info.version < 5) {
+            throw new IOException(context.getString(R.string.legacy_backups_cannot_be_renamed));
+        }
+        if (!CryptoUtils.MODE_NO_ENCRYPTION.equals(metadata.info.crypto)) {
+            throw new IOException(context.getString(R.string.encrypted_backups_cannot_be_renamed));
+        }
+        if (Objects.equals(backupName, metadata.metadata.backupName)) {
+            return metadata;
+        }
+        ensureBackupNameAvailable(context, metadata, backupName);
+
+        BackupItems.BackupItem backupItem = metadata.info.getBackupItem();
+        if (backupItem == null || !backupItem.isV5AndUp()) {
+            throw new IOException(context.getString(R.string.legacy_backups_cannot_be_renamed));
+        }
+
+        BackupMetadataV5.Metadata renamedMetadata = new BackupMetadataV5.Metadata(metadata.metadata, backupName);
+        BackupMetadataV5 renamedBackup = new BackupMetadataV5(metadata.info, renamedMetadata);
+        Path metadataFile = backupItem.getMetadataV5File(false);
+        try (OutputStream outputStream = metadataFile.openOutputStream()) {
+            outputStream.write(renamedMetadata.serializeToJson().toString(4).getBytes());
+        } catch (JSONException e) {
+            throw new IOException(e.getMessage() + " for file " + metadataFile, e);
+        }
+
+        Path checksumFile;
+        try (BackupItems.Checksum checksum = backupItem.getChecksum()) {
+            checksumFile = checksum.getFile();
+        }
+        replaceChecksum(checksumFile, metadataFile.getName(), DigestUtils.getHexDigest(
+                metadata.info.checksumAlgo, metadataFile));
+        renameBackupInDbAndBroadcast(context, metadata, renamedBackup);
+        return renamedBackup;
+    }
+
+    private static void ensureBackupNameAvailable(@NonNull Context context,
+                                                  @NonNull BackupMetadataV5 metadata,
+                                                  @NonNull String backupName) throws IOException {
+        if (Utils.isRoboUnitTest()) {
+            return;
+        }
+        String sanitizedBackupName = getV4SanitizedBackupName(backupName);
+        String currentRelativeDir = metadata.info.getRelativeDir();
+        for (Backup backup : new AppDb().getAllBackupsNoLock(metadata.metadata.packageName)) {
+            if (Objects.equals(currentRelativeDir, backup.relativeDir)) {
+                continue;
+            }
+            if (Objects.equals(sanitizedBackupName, getV4SanitizedBackupName(backup.backupName))) {
+                throw new IOException(context.getString(R.string.backup_name_already_exists));
+            }
+        }
+    }
+
+    private static void renameBackupInDbAndBroadcast(@NonNull Context context,
+                                                     @NonNull BackupMetadataV5 oldMetadata,
+                                                     @NonNull BackupMetadataV5 newMetadata) {
+        if (Utils.isRoboUnitTest()) {
+            return;
+        }
+        AppDb appDb = new AppDb();
+        appDb.deleteBackup(Backup.fromBackupMetadataV5(oldMetadata));
+        appDb.insert(Backup.fromBackupMetadataV5(newMetadata));
+        appDb.updateApplication(context, newMetadata.metadata.packageName);
+        BroadcastUtils.sendDbPackageAltered(context, new String[]{newMetadata.metadata.packageName});
+    }
+
+    private static void replaceChecksum(@NonNull Path checksumFile,
+                                        @NonNull String fileName,
+                                        @NonNull String checksum) throws IOException {
+        Map<String, String> checksums = new LinkedHashMap<>();
+        try (BufferedReader reader = new BufferedReader(new PathReader(checksumFile))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] lineSplits = line.split("\t", 2);
+                if (lineSplits.length != 2) {
+                    throw new IOException("Illegal lines found in the checksum file.");
+                }
+                checksums.put(lineSplits[1], lineSplits[0]);
+            }
+        }
+        if (!checksums.containsKey(fileName)) {
+            throw new IOException("Could not find " + fileName + " in the checksum file.");
+        }
+        checksums.put(fileName, checksum);
+        try (PrintWriter writer = new PrintWriter(new BufferedWriter(new PathWriter(checksumFile)))) {
+            for (Map.Entry<String, String> entry : checksums.entrySet()) {
+                writer.println(String.format("%s\t%s", entry.getValue(), entry.getKey()));
+            }
+        }
     }
 
     @WorkerThread

@@ -153,7 +153,8 @@ class BackupOp implements Closeable {
     void runBackup(@Nullable ProgressHandler progressHandler) throws BackupException {
         try {
             // Fail backup if the app has items in Android KeyStore and backup isn't enabled
-            if (mBackupFlags.backupData() && mMetadata.metadata.keyStore && !Prefs.BackupRestore.backupAppsWithKeyStore()) {
+            if (shouldRejectDisabledKeyStoreBackup(mBackupFlags, mMetadata.metadata.keyStore,
+                    Prefs.BackupRestore.backupAppsWithKeyStore(), Build.VERSION.SDK_INT)) {
                 throw new BackupException("The app has keystore items and KeyStore backup isn't enabled.");
             }
             incrementProgress(progressHandler);
@@ -229,7 +230,7 @@ class BackupOp implements Closeable {
         // Verify tar type
         if (ArrayUtils.indexOf(TAR_TYPES, tarType) == -1) {
             // Unknown tar type, set default
-            tarType = TarUtils.TAR_GZIP;
+            tarType = TarUtils.TAR_NONE;
         }
         String crypto = CryptoUtils.getMode();
         BackupCryptSetupHelper cryptoHelper = new BackupCryptSetupHelper(crypto, MetadataManager.getCurrentBackupMetaVersion());
@@ -390,6 +391,12 @@ class BackupOp implements Closeable {
         } catch (Throwable th) {
             throw new BackupException("Failed to backup ADB data.", th);
         }
+    }
+
+    static boolean shouldRejectDisabledKeyStoreBackup(@NonNull BackupFlags backupFlags, boolean hasKeyStore,
+                                                      boolean backupAppsWithKeyStore, int sdkInt) {
+        return backupFlags.backupData() && hasKeyStore && !backupAppsWithKeyStore
+                && sdkInt < Build.VERSION_CODES.S;
     }
 
     private void backupKeyStore() throws BackupException {  // Called only when the app has an keystore item

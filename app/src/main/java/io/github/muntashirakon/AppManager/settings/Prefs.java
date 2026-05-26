@@ -178,7 +178,7 @@ public final class Prefs {
             // Verify tar type
             if (ArrayUtils.indexOf(TAR_TYPES, tarType) == -1) {
                 // Unknown tar type, set default
-                tarType = TarUtils.TAR_GZIP;
+                tarType = TarUtils.TAR_NONE;
             }
             return tarType;
         }

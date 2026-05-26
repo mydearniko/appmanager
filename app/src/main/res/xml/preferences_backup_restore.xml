@@ -6,7 +6,7 @@
     <Preference
         app:key="backup_compression_method"
         app:title="@string/pref_compression_method"
-        tools:summary="Current method: GZip"
+        tools:summary="Current method: Uncompressed"
         app:iconSpaceReserved="false" />
 
     <Preference

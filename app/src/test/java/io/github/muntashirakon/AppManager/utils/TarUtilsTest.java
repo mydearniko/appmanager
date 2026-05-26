@@ -74,6 +74,9 @@ public class TarUtilsTest {
         if (tmpRoot.hasFile("am.tar.gz.0")) {
             tmpRoot.findFile("am.tar.gz.0").delete();
         }
+        if (tmpRoot.hasFile("am.tar.0")) {
+            tmpRoot.findFile("am.tar.0").delete();
+        }
     }
 
     @Test
@@ -86,6 +89,28 @@ public class TarUtilsTest {
     public void testExtractTarGZipWithFilter() throws Throwable {
         extractTest(tarGzFilesForExtractTest, testRoot, /* language=regexp */ new String[]{".*include\\.txt"},
                 null, Arrays.asList("", "prefixed/", "prefixed/prefixed_include.txt", "raw/", "raw/include.txt"));
+    }
+
+    @Test
+    public void testCreateAndExtractUncompressedTar() throws Throwable {
+        List<String> expectedPaths = Arrays.asList("plain.txt", "prefixed/", "prefixed/prefixed_exclude.txt",
+                "prefixed/prefixed_include.txt", "raw/", "raw/exclude.txt", "raw/include.txt");
+        List<Path> files = TarUtils.create(TarUtils.TAR_NONE, testRoot, tmpRoot, "am.tar", null,
+                null, null, false);
+        List<String> actualPaths = getFileNamesNoCompress(files);
+        Collections.sort(expectedPaths);
+        Collections.sort(actualPaths);
+        assertEquals(expectedPaths, actualPaths);
+
+        recreateDir(testRoot);
+        TarUtils.extract(TarUtils.TAR_NONE, files.toArray(new Path[0]), testRoot, null, null, null);
+        actualPaths.clear();
+        gatherFiles(actualPaths, testRoot, testRoot);
+        expectedPaths = new ArrayList<>(expectedPaths);
+        expectedPaths.add("");
+        Collections.sort(expectedPaths);
+        Collections.sort(actualPaths);
+        assertEquals(expectedPaths, actualPaths);
     }
 
     @Test

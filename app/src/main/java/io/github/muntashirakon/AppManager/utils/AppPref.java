@@ -379,9 +379,10 @@ public class AppPref {
                 return (UserHandleHidden.myUserId() + 60001);
             case PREF_BACKUP_FLAGS_INT:
                 return BackupFlags.BACKUP_INT_DATA | BackupFlags.BACKUP_RULES
-                        | BackupFlags.BACKUP_APK_FILES | BackupFlags.BACKUP_EXTRAS;
+                        | BackupFlags.BACKUP_APK_FILES | BackupFlags.BACKUP_EXTRAS
+                        | BackupFlags.BACKUP_MULTIPLE;
             case PREF_BACKUP_COMPRESSION_METHOD_STR:
-                return TarUtils.TAR_GZIP;
+                return TarUtils.TAR_NONE;
             case PREF_ENABLE_KILL_FOR_SYSTEM_BOOL:
             case PREF_GLOBAL_BLOCKING_ENABLED_BOOL:
             case PREF_INSTALLER_ALWAYS_ON_BACKGROUND_BOOL:

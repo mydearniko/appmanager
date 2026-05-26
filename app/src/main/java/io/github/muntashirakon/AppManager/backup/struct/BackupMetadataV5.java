@@ -268,8 +268,12 @@ public class BackupMetadataV5 implements LocalizedString {
         }
 
         public Metadata(@NonNull Metadata metadata) {
+            this(metadata, metadata.backupName);
+        }
+
+        public Metadata(@NonNull Metadata metadata, @Nullable String backupName) {
             version = metadata.version;
-            backupName = metadata.backupName;
+            this.backupName = backupName;
             label = metadata.label;
             packageName = metadata.packageName;
             versionName = metadata.versionName;
@@ -364,7 +368,11 @@ public class BackupMetadataV5 implements LocalizedString {
             subtitleText.append(", ").append(context.getString(R.string.pgp_aes_rsa_encrypted,
                     info.crypto.toUpperCase(Locale.ROOT)));
         }
-        subtitleText.append(", ").append(context.getString(R.string.gz_bz2_compressed, getReadableTarType(info.tarType)));
+        if (TarUtils.TAR_NONE.equals(info.tarType)) {
+            subtitleText.append(", ").append(getReadableTarType(info.tarType));
+        } else {
+            subtitleText.append(", ").append(context.getString(R.string.gz_bz2_compressed, getReadableTarType(info.tarType)));
+        }
         subtitleText.append(", ")
                 .append(context.getString(R.string.size)).append(LangUtils.getSeparatorString()).append(Formatter
                         .formatFileSize(context, info.getBackupSize()));

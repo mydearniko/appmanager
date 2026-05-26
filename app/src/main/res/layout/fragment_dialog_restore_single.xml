@@ -29,6 +29,14 @@
                 tools:visibility="visible"
                 tools:text="Some apps cannot be backed up." />
 
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/action_multiple_selection"
+                style="@style/Widget.AppTheme.MaterialSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="@dimen/padding_medium"
+                android:text="@string/multiple_selection" />
+
             <io.github.muntashirakon.widget.RecyclerView
                 android:id="@android:id/list"
                 android:layout_width="match_parent"

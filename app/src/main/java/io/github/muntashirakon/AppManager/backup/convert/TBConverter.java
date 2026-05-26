@@ -429,17 +429,17 @@ public class TBConverter extends Converter {
     @NonNull
     private Path getDataFile(String filePrefix, @TarUtils.TarType String tarType) throws FileNotFoundException {
         String filename = filePrefix + ".tar";
-        if (TAR_BZIP2.equals(tarType)) filename += ".bz2";
+        if (TAR_GZIP.equals(tarType)) filename += ".gz";
+        else if (TAR_BZIP2.equals(tarType)) filename += ".bz2";
         else if (TAR_ZSTD.equals(tarType)) filename += ".zst";
-        else filename += ".gz";
         return mBackupLocation.findFile(filename);
     }
 
     @NonNull
     private Path getApkFile(String apkName, @TarUtils.TarType String tarType) throws FileNotFoundException {
-        if (TAR_BZIP2.equals(tarType)) apkName += ".bz2";
+        if (TAR_GZIP.equals(tarType)) apkName += ".gz";
+        else if (TAR_BZIP2.equals(tarType)) apkName += ".bz2";
         else if (TAR_ZSTD.equals(tarType)) apkName += ".zst";
-        else apkName += ".gz";
         return mBackupLocation.findFile(apkName);
     }
 

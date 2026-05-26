@@ -21,8 +21,10 @@ import io.github.muntashirakon.AppManager.backup.struct.RestoreOpOptions;
 import io.github.muntashirakon.AppManager.batchops.struct.BatchBackupOptions;
 import io.github.muntashirakon.AppManager.db.utils.AppDb;
 import io.github.muntashirakon.AppManager.settings.Prefs;
+import io.github.muntashirakon.AppManager.utils.AppPref;
 import io.github.muntashirakon.AppManager.utils.ContextUtils;
 import io.github.muntashirakon.AppManager.utils.RoboUtils;
+import io.github.muntashirakon.AppManager.utils.TarUtils;
 import io.github.muntashirakon.io.Path;
 import io.github.muntashirakon.io.Paths;
 
@@ -86,6 +88,18 @@ public class BackupManagerTest {
     }
 
     @Test
+    public void testGetExtReturnsPlainTarForUncompressedBackups() {
+        assertEquals(".tar", BackupManager.getExt(TarUtils.TAR_NONE));
+    }
+
+    @Test
+    public void testDefaultBackupFlagsEnableMultipleBackups() {
+        int defaultFlags = (int) AppPref.getNewInstance(ContextUtils.getContext())
+                .getDefaultValue(AppPref.PrefKey.PREF_BACKUP_FLAGS_INT);
+        assertTrue((defaultFlags & BackupFlags.BACKUP_MULTIPLE) != 0);
+    }
+
+    @Test
     public void testBackupV5Custom() throws BackupException, IOException {
         MetadataManager.setCurrentBackupMetaVersion(5);
         // First run restore
@@ -117,6 +131,29 @@ public class BackupManagerTest {
         assertEquals(2, metadata.metadata.dataDirs.length);
         assertEquals(BuildConfig.APPLICATION_ID, metadata.metadata.installer);
         assertFalse(metadata.metadata.isSplitApk);
+        bm.verify(BackupUtils.getV5RelativeDir(backupUuid));
+    }
+
+    @Test
+    public void testRenameBackupV5Custom() throws BackupException, IOException {
+        MetadataManager.setCurrentBackupMetaVersion(5);
+        // First run restore
+        testRestoreV4Default();
+        // Do backup
+        Prefs.Storage.setVolumePath(tmpBackupPath.getUri().toString());
+        BackupManager bm = new BackupManager();
+        BackupOpOptions options = new BackupOpOptions("dnsfilter.android", 0, 1110 | BackupFlags.BACKUP_MULTIPLE, "test_backup", false);
+        bm.backup(options, null);
+        Path[] backupPaths = Prefs.Storage.getAppManagerDirectory().findFile(BackupItems.BACKUP_DIRECTORY).listFiles();
+        assertEquals(1, backupPaths.length);
+        String backupUuid = backupPaths[0].getName();
+        BackupItems.BackupItem backupItem = BackupItems.findBackupItem(BackupUtils.getV5RelativeDir(backupUuid));
+
+        BackupMetadataV5 renamedMetadata = BackupUtils.renameBackup(ContextUtils.getContext(), backupItem.getMetadata(), "renamed_backup");
+
+        assertEquals("renamed_backup", renamedMetadata.metadata.backupName);
+        assertEquals("renamed_backup", backupItem.getMetadata().metadata.backupName);
+        assertFalse(renamedMetadata.isBaseBackup());
         bm.verify(BackupUtils.getV5RelativeDir(backupUuid));
     }
 

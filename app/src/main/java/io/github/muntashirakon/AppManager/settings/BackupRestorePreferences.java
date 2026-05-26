@@ -48,6 +48,7 @@ import io.github.muntashirakon.AppManager.settings.crypto.AESCryptoSelectionDial
 import io.github.muntashirakon.AppManager.settings.crypto.ECCCryptoSelectionDialogFragment;
 import io.github.muntashirakon.AppManager.settings.crypto.OpenPgpKeySelectionDialogFragment;
 import io.github.muntashirakon.AppManager.settings.crypto.RSACryptoSelectionDialogFragment;
+import io.github.muntashirakon.AppManager.utils.ThreadUtils;
 import io.github.muntashirakon.dialog.DialogTitleBuilder;
 import io.github.muntashirakon.dialog.SearchableItemsDialogBuilder;
 import io.github.muntashirakon.dialog.SearchableMultiChoiceDialogBuilder;
@@ -78,6 +79,10 @@ public class BackupRestorePreferences extends PreferenceFragment {
     private int mImportType;
     private boolean mDeleteBackupsAfterImport;
     private MainPreferencesViewModel mModel;
+    @Nullable
+    private List<Integer> mSupportedBackupFlags;
+    @Nullable
+    private CharSequence[] mSupportedBackupFlagNames;
 
     private final ActivityResultLauncher<Intent> mSafSelectBackupVolume = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -136,12 +141,25 @@ public class BackupRestorePreferences extends PreferenceFragment {
             return true;
         });
         // Backup flags
-        BackupFlags flags = BackupFlags.fromPref();
-        ((Preference) Objects.requireNonNull(findPreference("backup_flags"))).setOnPreferenceClickListener(preference -> {
+        Preference backupFlagsPreference = Objects.requireNonNull(findPreference("backup_flags"));
+        backupFlagsPreference.setEnabled(false);
+        ThreadUtils.postOnBackgroundThread(() -> {
             List<Integer> supportedBackupFlags = BackupFlags.getSupportedBackupFlagsAsArray();
-            new SearchableMultiChoiceDialogBuilder<>(requireActivity(), supportedBackupFlags, BackupFlags.getFormattedFlagNames(requireContext(), supportedBackupFlags))
+            ThreadUtils.postOnMainThread(() -> {
+                if (!isAdded()) return;
+                mSupportedBackupFlags = supportedBackupFlags;
+                mSupportedBackupFlagNames = BackupFlags.getFormattedFlagNames(requireContext(), supportedBackupFlags);
+                backupFlagsPreference.setEnabled(true);
+            });
+        });
+        backupFlagsPreference.setOnPreferenceClickListener(preference -> {
+            if (mSupportedBackupFlags == null || mSupportedBackupFlagNames == null) {
+                return true;
+            }
+            BackupFlags flags = BackupFlags.fromPref();
+            new SearchableMultiChoiceDialogBuilder<>(requireActivity(), mSupportedBackupFlags, mSupportedBackupFlagNames)
                     .setTitle(R.string.backup_options)
-                    .addSelections(flags.flagsToCheckedIndexes(supportedBackupFlags))
+                    .addSelections(flags.flagsToCheckedIndexes(mSupportedBackupFlags))
                     .hideSearchBar(true)
                     .showSelectAll(false)
                     .setPositiveButton(R.string.save, (dialog, which, selectedItems) -> {

@@ -19,7 +19,6 @@ import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
-import org.jetbrains.annotations.Contract;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -42,6 +41,7 @@ public final class TarUtils {
     public static final long DEFAULT_SPLIT_SIZE = 1024 * 1024 * 1024;
 
     @StringDef(value = {
+            TAR_NONE,
             TAR_GZIP,
             TAR_BZIP2,
             TAR_ZSTD,
@@ -50,6 +50,7 @@ public final class TarUtils {
     public @interface TarType {
     }
 
+    public static final String TAR_NONE = "tar";
     public static final String TAR_GZIP = "z";
     public static final String TAR_BZIP2 = "j";
     public static final String TAR_ZSTD = "s";
@@ -218,12 +219,13 @@ public final class TarUtils {
         }
     }
 
-    @Contract("_, _ -> new")
     @NonNull
     public static InputStream createDecompressedStream(@NonNull InputStream compressedStream,
                                                         @NonNull @TarType String tarType)
             throws IOException {
         switch (tarType) {
+            case TAR_NONE:
+                return compressedStream;
             case TAR_GZIP:
                 return new GzipCompressorInputStream(compressedStream, true);
             case TAR_BZIP2:
@@ -235,12 +237,13 @@ public final class TarUtils {
         }
     }
 
-    @Contract("_, _ -> new")
     @NonNull
     public static OutputStream createCompressedStream(@NonNull OutputStream regularStream,
                                                        @NonNull @TarType String tarType)
             throws IOException {
         switch (tarType) {
+            case TAR_NONE:
+                return regularStream;
             case TAR_GZIP:
                 return new GzipCompressorOutputStream(regularStream);
             case TAR_BZIP2:

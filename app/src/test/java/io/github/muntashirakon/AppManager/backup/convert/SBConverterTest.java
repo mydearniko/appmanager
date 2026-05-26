@@ -75,12 +75,12 @@ public class SBConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("SB", metadataV5.metadata.backupName);
-        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles())));
-        List<String> files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(0)));
+        List<String> files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(0)));
         Collections.sort(files);
         assertEquals(internalStorage, files);
-        files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(1)));
+        files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(1)));
         Collections.sort(files);
         assertEquals(externalStorage, files);
     }
@@ -102,12 +102,12 @@ public class SBConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("SB", metadataV5.metadata.backupName);
-        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles())));
-        List<String> files = TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(0)));
+        List<String> files = TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(0)));
         Collections.sort(files);
         assertEquals(internalStorage, files);
-        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
     }
 
     @Test
@@ -123,10 +123,10 @@ public class SBConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("SB", metadataV5.metadata.backupName);
-        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles())));
-        assertFalse(newBackupLocation.hasFile("data0.tar.gz.0"));
-        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+        assertFalse(newBackupLocation.hasFile("data0.tar.0"));
+        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
     }
 
     @Test
@@ -146,12 +146,12 @@ public class SBConverterTest {
         BackupMetadataV5 metadataV5 = backupItem.getMetadata();
         assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
         assertEquals("SB", metadataV5.metadata.backupName);
-        List<String> actualApkFiles = TarUtilsTest.getFileNamesGZip(
+        List<String> actualApkFiles = TarUtilsTest.getFileNamesNoCompress(
                 Arrays.asList(backupItem.getSourceFiles()));
         Collections.sort(actualApkFiles);
         assertEquals(expectedApkFiles, actualApkFiles);
-        assertFalse(newBackupLocation.hasFile("data0.tar.gz.0"));
-        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+        assertFalse(newBackupLocation.hasFile("data0.tar.0"));
+        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
     }
 
 
@@ -169,9 +169,9 @@ public class SBConverterTest {
 //        BackupMetadataV5 metadataV5 = backupItem.getMetadata();
 //        assertEquals(MetadataManager.getCurrentBackupMetaVersion(), metadataV5.info.version);
 //        assertEquals("SB", metadataV5.metadata.backupName);
-//        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesGZip(
+//        assertEquals(Collections.singletonList("base.apk"), TarUtilsTest.getFileNamesNoCompress(
 //                Arrays.asList(backupItem.getSourceFiles())));
-//        assertEquals(Collections.singletonList("test-assets.obb"), TarUtilsTest.getFileNamesGZip(Arrays.asList(backupItem.getDataFiles(0))));
-//        assertFalse(newBackupLocation.hasFile("data1.tar.gz.0"));
+//        assertEquals(Collections.singletonList("test-assets.obb"), TarUtilsTest.getFileNamesNoCompress(Arrays.asList(backupItem.getDataFiles(0))));
+//        assertFalse(newBackupLocation.hasFile("data1.tar.0"));
 //    }
 }
