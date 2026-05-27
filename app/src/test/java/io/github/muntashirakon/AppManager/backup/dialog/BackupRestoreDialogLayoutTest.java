@@ -36,6 +36,21 @@ public class BackupRestoreDialogLayoutTest {
         assertFragmentRefreshesBottomSheetScrollingChild("RestoreSingleFragment.java");
     }
 
+    @Test
+    public void backupDialogKeepsRestoreListGesturesOnTheList() throws IOException {
+        File sourceFile = new File("app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupRestoreDialogFragment.java");
+        if (!sourceFile.exists()) {
+            sourceFile = new File("src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupRestoreDialogFragment.java");
+        }
+        String source = new String(Files.readAllBytes(sourceFile.toPath()), StandardCharsets.UTF_8);
+
+        assertTrue("Backup/restore bottom sheet must not consume vertical restore-list drags",
+                source.contains("getBehavior().setDraggable(false);"));
+        assertTrue("Backup/restore lists must disallow parent intercept while row scrolling starts",
+                source.contains("requestParentIntercept(scrollingChild, true);")
+                        && source.contains("requestDisallowInterceptTouchEvent(disallowIntercept);"));
+    }
+
     private static void assertListOwnsScrolling(String layoutFileName) {
         Document document = parseLayout(layoutFileName);
         Element recyclerView = findAndroidListRecyclerView(document, layoutFileName);
@@ -67,8 +82,8 @@ public class BackupRestoreDialogLayoutTest {
         }
         String source = new String(Files.readAllBytes(sourceFile.toPath()), StandardCharsets.UTF_8);
 
-        assertTrue(sourceFileName + " must refresh the bottom sheet scrolling child after its list is attached",
-                source.contains("BackupRestoreDialogFragment.updateScrollingChildWhenReady(this, recyclerView);"));
+        assertTrue(sourceFileName + " must prepare the dialog list after its RecyclerView is attached",
+                source.contains("BackupRestoreDialogFragment.prepareScrollingList(this, recyclerView);"));
     }
 
     private static Element findAndroidListRecyclerView(Document document, String layoutFileName) {

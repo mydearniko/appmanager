@@ -66,7 +66,7 @@ public class BackupFragment extends Fragment {
         }
         FlagsAdapter adapter = new FlagsAdapter(mContext, BackupFlags.fromPref().getFlags(), supportedFlags);
         recyclerView.setAdapter(adapter);
-        BackupRestoreDialogFragment.updateScrollingChildWhenReady(this, recyclerView);
+        BackupRestoreDialogFragment.prepareScrollingList(this, recyclerView);
 
         Set<CharSequence> uninstalledApps = mViewModel.getUninstalledApps();
         if (!uninstalledApps.isEmpty()) {

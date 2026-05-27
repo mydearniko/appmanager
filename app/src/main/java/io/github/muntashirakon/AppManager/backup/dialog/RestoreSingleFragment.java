@@ -75,7 +75,7 @@ public class RestoreSingleFragment extends Fragment {
                     moreButton.setEnabled(selectionCount > 0);
                 });
         recyclerView.setAdapter(adapter);
-        BackupRestoreDialogFragment.updateScrollingChildWhenReady(this, recyclerView);
+        BackupRestoreDialogFragment.prepareScrollingList(this, recyclerView);
         multipleSelectionSwitch.setVisibility(adapter.getItemCount() > 1 ? View.VISIBLE : View.GONE);
         multipleSelectionSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> adapter.setMultipleSelectionEnabled(isChecked));
 

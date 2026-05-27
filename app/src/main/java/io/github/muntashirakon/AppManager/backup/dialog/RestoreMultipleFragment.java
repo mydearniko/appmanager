@@ -60,7 +60,7 @@ public class RestoreMultipleFragment extends Fragment {
         }
         FlagsAdapter adapter = new FlagsAdapter(mContext, checkedFlags, supportedFlags, disabledFlags);
         recyclerView.setAdapter(adapter);
-        BackupRestoreDialogFragment.updateScrollingChildWhenReady(this, recyclerView);
+        BackupRestoreDialogFragment.prepareScrollingList(this, recyclerView);
 
         Set<CharSequence> appsWithoutBackups = mViewModel.getAppsWithoutBackups();
         if (!appsWithoutBackups.isEmpty()) {

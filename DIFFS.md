@@ -157,8 +157,12 @@ Required behavior:
 - Keep the `RecyclerView` nested scrolling default enabled so bottom-sheet nested scrolling can track the active list
   instead of leaving row drags stuck on the first visible rows.
 - After each backup/restore list fragment attaches its `RecyclerView`, refresh the bottom sheet scrolling-child reference
-  with `BackupRestoreDialogFragment.updateScrollingChildWhenReady(...)`. The ViewPager page callback can run before the
-  list exists, so relying on the page callback alone can leave the bottom sheet intercepting row swipes.
+  through `BackupRestoreDialogFragment.prepareScrollingList(...)`. The ViewPager page callback can run before the list
+  exists, so relying on the page callback alone can leave the bottom sheet intercepting row swipes.
+- The Backup/Restore bottom sheet itself must be non-draggable so vertical gestures over restore rows cannot be consumed
+  as sheet drags before the `RecyclerView` scrolls.
+- Backup/restore list fragments must call `BackupRestoreDialogFragment.prepareScrollingList(...)`, which refreshes the
+  bottom-sheet scrolling-child reference and disallows parent intercept while list touch scrolling begins.
 - Keep this on the backup, multi-restore, and single-restore dialog list layouts.
 
 Files:

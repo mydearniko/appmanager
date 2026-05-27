@@ -2,6 +2,7 @@
 
 package io.github.muntashirakon.AppManager.backup.dialog;
 
+import android.annotation.SuppressLint;
 import android.annotation.UserIdInt;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,8 +13,10 @@ import android.os.Bundle;
 import android.os.UserHandleHidden;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.FrameLayout;
 
 import androidx.annotation.IntDef;
@@ -164,6 +167,7 @@ public class BackupRestoreDialogFragment extends CapsuleBottomSheetDialogFragmen
     public void onBodyInitialized(@NonNull View bodyView, @Nullable Bundle savedInstanceState) {
         mViewModel = new ViewModelProvider(this).get(BackupRestoreDialogViewModel.class);
         mActivity = requireActivity();
+        getBehavior().setDraggable(false);
         Bundle args = requireArguments();
         List<UserPackagePair> targetPackages = args.getParcelableArrayList(ARG_PACKAGE_PAIRS);
         mCustomModes = args.getInt(ARG_CUSTOM_MODE, MODE_BACKUP | MODE_RESTORE | MODE_DELETE);
@@ -374,7 +378,34 @@ public class BackupRestoreDialogFragment extends CapsuleBottomSheetDialogFragmen
                 .show();
     }
 
-    static void updateScrollingChildWhenReady(@NonNull Fragment fragment, @NonNull View scrollingChild) {
+    @SuppressLint("ClickableViewAccessibility")
+    static void prepareScrollingList(@NonNull Fragment fragment, @NonNull View scrollingChild) {
+        scrollingChild.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                case MotionEvent.ACTION_MOVE:
+                    requestParentIntercept(scrollingChild, true);
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    requestParentIntercept(scrollingChild, false);
+                    break;
+                default:
+            }
+            return false;
+        });
+        updateScrollingChildWhenReady(fragment, scrollingChild);
+    }
+
+    private static void requestParentIntercept(@NonNull View child, boolean disallowIntercept) {
+        ViewParent parent = child.getParent();
+        while (parent != null) {
+            parent.requestDisallowInterceptTouchEvent(disallowIntercept);
+            parent = parent.getParent();
+        }
+    }
+
+    private static void updateScrollingChildWhenReady(@NonNull Fragment fragment, @NonNull View scrollingChild) {
         scrollingChild.post(() -> {
             Fragment parent = fragment.getParentFragment();
             if (parent instanceof BackupRestoreDialogFragment) {
