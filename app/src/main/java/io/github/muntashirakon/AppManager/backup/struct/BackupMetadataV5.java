@@ -102,6 +102,31 @@ public class BackupMetadataV5 implements LocalizedString {
                     @Nullable byte[] iv,
                     @Nullable byte[] aes,
                     @Nullable String keyIds) {
+            this(backupTime, flags, userId, tarType, checksumAlgo, crypto, iv, aes, keyIds, true, null);
+        }
+
+        @NonNull
+        public static Info fromDbSummary(long backupTime,
+                                         @NonNull BackupFlags flags,
+                                         @UserIdInt int userId,
+                                         @TarUtils.TarType @NonNull String tarType,
+                                         @CryptoUtils.Mode @NonNull String crypto,
+                                         @Nullable String relativeDir) {
+            return new Info(backupTime, flags, userId, tarType, DigestUtils.SHA_256, crypto,
+                    null, null, null, false, relativeDir);
+        }
+
+        private Info(long backupTime,
+                     @NonNull BackupFlags flags,
+                     @UserIdInt int userId,
+                     @TarUtils.TarType @NonNull String tarType,
+                     @DigestUtils.Algorithm @NonNull String checksumAlgo,
+                     @CryptoUtils.Mode @NonNull String crypto,
+                     @Nullable byte[] iv,
+                     @Nullable byte[] aes,
+                     @Nullable String keyIds,
+                     boolean verifyCrypto,
+                     @Nullable String relativeDir) {
             this.version = MetadataManager.getCurrentBackupMetaVersion();
             this.backupTime = backupTime;
             this.flags = flags;
@@ -112,7 +137,10 @@ public class BackupMetadataV5 implements LocalizedString {
             this.iv = iv;
             this.aes = aes;
             this.keyIds = keyIds;
-            verifyCrypto();
+            this.mRelativeDir = relativeDir;
+            if (verifyCrypto) {
+                verifyCrypto();
+            }
         }
 
         public Info(@NonNull JSONObject rootObject) throws JSONException {
@@ -136,7 +164,14 @@ public class BackupMetadataV5 implements LocalizedString {
             mRelativeDir = backupItem.getRelativeDir();
         }
 
+        @Nullable
         public BackupItems.BackupItem getBackupItem() {
+            if (mBackupItem == null && mRelativeDir != null) {
+                try {
+                    mBackupItem = BackupItems.findBackupItem(mRelativeDir);
+                } catch (IOException ignore) {
+                }
+            }
             return mBackupItem;
         }
 
@@ -158,7 +193,12 @@ public class BackupMetadataV5 implements LocalizedString {
         }
 
         public boolean isFrozen() {
-            return mBackupItem != null && mBackupItem.isFrozen();
+            return isFrozen(false);
+        }
+
+        public boolean isFrozen(boolean resolveBackupItem) {
+            BackupItems.BackupItem backupItem = resolveBackupItem ? getBackupItem() : mBackupItem;
+            return backupItem != null && backupItem.isFrozen();
         }
 
         private void verifyCrypto() {
@@ -258,7 +298,7 @@ public class BackupMetadataV5 implements LocalizedString {
         public boolean isSplitApk;  // is_split_apk
         public String[] splitConfigs;  // split_configs
         public String apkName;  // apk_name
-        public String instructionSet = VMRuntime.getInstructionSet(Build.SUPPORTED_ABIS[0]);  // instruction_set
+        public String instructionSet = getDefaultInstructionSet();  // instruction_set
         public boolean keyStore;  // key_store
         @Nullable
         public String installer;  // installer
@@ -313,6 +353,13 @@ public class BackupMetadataV5 implements LocalizedString {
         }
 
         @NonNull
+        private static String getDefaultInstructionSet() {
+            String[] supportedAbis = Build.SUPPORTED_ABIS;
+            String abi = supportedAbis != null && supportedAbis.length > 0 ? supportedAbis[0] : VMRuntime.ABI_X86_64;
+            return VMRuntime.getInstructionSet(abi);
+        }
+
+        @NonNull
         @Override
         public JSONObject serializeToJson() throws JSONException {
             JSONObject rootObject = new JSONObject();
@@ -359,17 +406,7 @@ public class BackupMetadataV5 implements LocalizedString {
     @NonNull
     @WorkerThread
     public CharSequence toLocalizedString(@NonNull Context context, boolean includeBackupSize) {
-        CharSequence titleText = null;
-        if (info.mBackupItem != null) {
-            try {
-                titleText = info.mBackupItem.getDisplayName();
-            } catch (IOException ignore) {
-            }
-        }
-        if (TextUtils.isEmpty(titleText)) {
-            titleText = isBaseBackup() ? context.getText(R.string.base_backup) : Objects.requireNonNull(metadata.backupName);
-        }
-
+        CharSequence titleText = getBackupTitle(context);
         StringBuilder subtitleText = new StringBuilder()
                 .append(DateUtils.formatDateTime(context, info.backupTime))
                 .append(", ")
@@ -401,5 +438,48 @@ public class BackupMetadataV5 implements LocalizedString {
 
         return new SpannableStringBuilder(getTitleText(context, titleText)).append("\n")
                 .append(getSmallerText(getSecondaryText(context, subtitleText)));
+    }
+
+    @NonNull
+    @WorkerThread
+    public CharSequence toCompactLocalizedString(@NonNull Context context) {
+        StringBuilder subtitleText = new StringBuilder()
+                .append(DateUtils.formatDateTime(context, info.backupTime))
+                .append(", ")
+                .append(context.getString(R.string.version)).append(LangUtils.getSeparatorString()).append(metadata.versionName)
+                .append(", u").append(info.userId)
+                .append(", ")
+                .append(info.flags.toLocalisedString(context));
+        if (info.crypto.equals(CryptoUtils.MODE_NO_ENCRYPTION)) {
+            subtitleText.append(", ").append(context.getString(R.string.no_encryption));
+        } else {
+            subtitleText.append(", ").append(context.getString(R.string.pgp_aes_rsa_encrypted,
+                    info.crypto.toUpperCase(Locale.ROOT)));
+        }
+        if (TarUtils.TAR_NONE.equals(info.tarType)) {
+            subtitleText.append(", ").append(getReadableTarType(info.tarType));
+        } else {
+            subtitleText.append(", ").append(context.getString(R.string.gz_bz2_compressed, getReadableTarType(info.tarType)));
+        }
+        if (info.isFrozen()) {
+            subtitleText.append(", ").append(context.getText(R.string.frozen));
+        }
+        return new SpannableStringBuilder(getTitleText(context, getBackupTitle(context))).append("\n")
+                .append(getSmallerText(getSecondaryText(context, subtitleText)));
+    }
+
+    @NonNull
+    private CharSequence getBackupTitle(@NonNull Context context) {
+        CharSequence titleText = null;
+        if (info.mBackupItem != null) {
+            try {
+                titleText = info.mBackupItem.getDisplayName();
+            } catch (IOException ignore) {
+            }
+        }
+        if (TextUtils.isEmpty(titleText)) {
+            return isBaseBackup() ? context.getText(R.string.base_backup) : Objects.requireNonNull(metadata.backupName);
+        }
+        return titleText;
     }
 }

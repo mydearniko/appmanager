@@ -2,8 +2,6 @@
 
 package io.github.muntashirakon.AppManager.db.entity;
 
-import android.text.TextUtils;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.ColumnInfo;
@@ -84,17 +82,20 @@ public class Backup {
     }
 
     @NonNull
+    public String getRelativeDir() {
+        if (relativeDir == null || relativeDir.isEmpty()) {
+            return BackupUtils.getV4RelativeDir(userId, backupName, packageName);
+        }
+        return relativeDir;
+    }
+
+    @NonNull
     public BackupItems.BackupItem getItem() throws IOException {
-        String relativeDir;
-        if (TextUtils.isEmpty(this.relativeDir)) {
-            if (version >= 5) {
-                // In backup v5 onwards, relativeDir must be set
-                throw new IOException("relativeDir not set.");
-            }
-            // Relative directory needs to be inferred.
-            relativeDir = BackupUtils.getV4RelativeDir(userId, backupName, packageName);
-        } else relativeDir = this.relativeDir;
-        return BackupItems.findBackupItem(relativeDir);
+        if ((this.relativeDir == null || this.relativeDir.isEmpty()) && version >= 5) {
+            // In backup v5 onwards, relativeDir must be set
+            throw new IOException("relativeDir not set.");
+        }
+        return BackupItems.findBackupItem(getRelativeDir());
     }
 
     @Override

@@ -5,6 +5,7 @@ package io.github.muntashirakon.AppManager.backup.dialog;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -41,6 +42,7 @@ import io.github.muntashirakon.AppManager.utils.UIUtils;
 import io.github.muntashirakon.dialog.SearchableFlagsDialogBuilder;
 import io.github.muntashirakon.dialog.TextInputDialogBuilder;
 import io.github.muntashirakon.util.AdapterUtils;
+import io.github.muntashirakon.util.UiUtils;
 
 public class RestoreSingleFragment extends Fragment {
     public static RestoreSingleFragment getInstance() {
@@ -103,7 +105,10 @@ public class RestoreSingleFragment extends Fragment {
                 List<BackupMetadataV5> selectedBackups = adapter.getSelectedBackups();
                 for (BackupMetadataV5 metadata : selectedBackups) {
                     try {
-                        metadata.info.getBackupItem().freeze();
+                        BackupItems.BackupItem backupItem = metadata.info.getBackupItem();
+                        if (backupItem != null) {
+                            backupItem.freeze();
+                        }
                     } catch (IOException ignore) {
                     }
                 }
@@ -114,7 +119,10 @@ public class RestoreSingleFragment extends Fragment {
                 List<BackupMetadataV5> selectedBackups = adapter.getSelectedBackups();
                 for (BackupMetadataV5 metadata : selectedBackups) {
                     try {
-                        metadata.info.getBackupItem().unfreeze();
+                        BackupItems.BackupItem backupItem = metadata.info.getBackupItem();
+                        if (backupItem != null) {
+                            backupItem.unfreeze();
+                        }
                     } catch (IOException ignore) {
                     }
                 }
@@ -126,16 +134,15 @@ public class RestoreSingleFragment extends Fragment {
     }
 
     private void handleRestore(@NonNull BackupMetadataV5 selectedBackup) {
-        BackupFlags flags = selectedBackup.info.flags;
-        BackupFlags enabledFlags = BackupFlags.fromPref();
-        enabledFlags.setFlags(flags.getFlags() & enabledFlags.getFlags());
-        List<Integer> supportedBackupFlags = BackupFlags.getBackupFlagsAsArray(flags.getFlags());
+        BackupInfo backupInfo = mViewModel.getBackupInfo();
+        BackupFlags enabledFlags = new BackupFlags(getInitialRestoreFlags(selectedBackup.info.flags.getFlags(),
+                BackupFlags.fromPref().getFlags(), backupInfo.isInstalled(), backupInfo.installedVersionMatches(selectedBackup)));
+        List<Integer> supportedBackupFlags = BackupFlags.getBackupFlagsAsArray(selectedBackup.info.flags.getFlags());
         // Inject no signatures
         supportedBackupFlags.add(BackupFlags.BACKUP_NO_SIGNATURE_CHECK);
         supportedBackupFlags.add(BackupFlags.BACKUP_CUSTOM_USERS);
         List<Integer> disabledFlags = new ArrayList<>();
-        if (!mViewModel.getBackupInfo().isInstalled()) {
-            enabledFlags.addFlag(BackupFlags.BACKUP_APK_FILES);
+        if (!backupInfo.isInstalled()) {
             disabledFlags.add(BackupFlags.BACKUP_APK_FILES);
         }
         new SearchableFlagsDialogBuilder<>(mContext, supportedBackupFlags, BackupFlags.getFormattedFlagNames(mContext, supportedBackupFlags), enabledFlags.getFlags())
@@ -159,8 +166,25 @@ public class RestoreSingleFragment extends Fragment {
                 .show();
     }
 
+    @BackupFlags.BackupFlag
+    static int getInitialRestoreFlags(@BackupFlags.BackupFlag int backupFlags, @BackupFlags.BackupFlag int preferredFlags,
+                                      boolean installed, boolean installedVersionMatchesBackup) {
+        int flags = backupFlags & preferredFlags;
+        if (!installed) {
+            return flags | BackupFlags.BACKUP_APK_FILES;
+        }
+        if (installedVersionMatchesBackup) {
+            flags &= ~BackupFlags.BACKUP_APK_FILES;
+        }
+        return flags;
+    }
+
     private void handleRename(@NonNull BackupMetadataV5 selectedBackup, @NonNull BackupAdapter adapter) {
         BackupItems.BackupItem backupItem = selectedBackup.info.getBackupItem();
+        if (backupItem == null) {
+            UIUtils.displayLongToast(R.string.backup_volume_unavailable_warning);
+            return;
+        }
         CharSequence currentName;
         try {
             currentName = backupItem.getDisplayName();
@@ -256,7 +280,7 @@ public class RestoreSingleFragment extends Fragment {
         public int getFrozenBackupSelectionCount() {
             int frozenBackupSelectionCount = 0;
             for (int position : mSelectionState.getSelectedPositions()) {
-                if (mBackups.get(position).info.isFrozen()) {
+                if (mBackups.get(position).info.isFrozen(true)) {
                     ++frozenBackupSelectionCount;
                 }
             }
@@ -308,7 +332,7 @@ public class RestoreSingleFragment extends Fragment {
             BackupMetadataV5 metadata = mBackups.get(position);
             boolean isSelected = mSelectionState.isSelected(position);
             holder.item.setChecked(isSelected);
-            holder.item.setText(metadata.toLocalizedString(holder.item.getContext(), false));
+            holder.item.setText(metadata.toCompactLocalizedString(holder.item.getContext()));
             holder.item.setOnClickListener(v -> {
                 if (!mSelectionState.onItemClicked(position)) {
                     return;
@@ -330,8 +354,14 @@ public class RestoreSingleFragment extends Fragment {
                 super(itemView);
                 item = itemView.findViewById(android.R.id.text1);
                 // textAppearanceBodyLarge
-                item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+                item.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
                 item.setTextColor(UIUtils.getTextColorSecondary(item.getContext()));
+                item.setMaxLines(2);
+                item.setEllipsize(TextUtils.TruncateAt.END);
+                item.setIncludeFontPadding(false);
+                int verticalPadding = UiUtils.dpToPx(item.getContext(), 6);
+                item.setPadding(item.getPaddingLeft(), verticalPadding, item.getPaddingRight(), verticalPadding);
+                item.setMinHeight(0);
             }
         }
     }

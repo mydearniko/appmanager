@@ -49,8 +49,10 @@ The Backup/Restore option dialog must not block for a long time while opening. T
 Required behavior:
 
 - Multi-package Backup/Restore dialog opening must use lightweight database-row classification.
-- Single-package restore details may still read full backup metadata because that view needs detailed per-backup rows.
-- The dialog must not read every backup metadata file just to decide whether multi-package backup/restore is available.
+- Single-package Backup/Restore dialog opening must use lightweight database-row metadata summaries for restore rows.
+- The dialog must not read every backup metadata file before the bottom sheet can render.
+- Full backup files may be touched later when the user explicitly chooses an operation such as restore, delete, rename,
+  freeze, or unfreeze.
 - The dialog must not calculate backup sizes while rendering the single-app restore selection list.
 - The dialog must not wait on the global app database refresh lock for its targeted app lookups.
 
@@ -60,25 +62,24 @@ Rationale:
 - App database refresh can hold `AppDb.sLock` for tens of seconds.
 - The open path only needs installed state, base-backup presence, labels, and common backup flags in many cases.
 
-### DB-Only Multi-Package Backup Classification
+### DB-Only Backup Dialog Classification
 
 `BackupRestoreDialogViewModel.processPackagesInternal(...)` differs from master.
 
 Required behavior:
 
 - Build a set of selected non-`android` package names before processing.
-- Set `loadFullBackupMetadata` to `true` only when there is one or fewer selected non-`android` package names.
-- For single-package mode, keep the full metadata path:
-  - iterate over backup rows;
-  - call `backup.getItem().getMetadata()`;
-  - skip metadata entries that throw `IOException`;
-  - use metadata to set base-backup state and detailed restore rows.
+- Set `loadSinglePackageBackupSummaries` to `true` only when there is one or fewer selected non-`android` package names.
+- For single-package mode, avoid metadata-file reads and call `BackupInfo.loadBackupMetadataSummariesFromDb(backups)`.
+- For single-package restore rows, build `BackupMetadataV5` summaries from DB rows so the list has backup name,
+  version, user, flags, crypto mode, tar type, and relative directory without opening backup files.
 - For multi-package mode, avoid metadata reads and call `BackupInfo.loadBackupsFromDb(backups)`.
 - Always load installed application state through `BackupInfo.loadApplications(apps)`.
 - If the no-lock DB read does not include an installed app row, check PackageManager for that package/user and append
   installed app info before calling `BackupInfo.loadApplications(apps)`. This keeps the dialog fast while preventing
   stale DB state from hiding the Backup action and showing a restore-only UI for installed apps.
-- A package must remain eligible when it is installed, has a base backup from DB rows, or has full metadata entries.
+- A package must remain eligible when it is installed, has a base backup from DB rows, or has single-package DB metadata
+  summaries.
 - `mWorstBackupFlag` must use `BackupInfo.getBaseBackupFlags()` instead of scanning metadata in the multi-package path.
 
 Files:
@@ -102,11 +103,18 @@ Required behavior:
   - use backup labels when the app label is still the package name;
   - detect base backups from `backupName == null` or empty `backupName`;
   - combine base-backup flags with bitwise AND so only common restorable flags remain.
+- `loadBackupMetadataSummariesFromDb(List<Backup>)` must:
+  - call `loadBackupsFromDb(backups)` for labels and base-backup/common-flag state;
+  - populate `mBackupMetadataList` with DB-backed `BackupMetadataV5` summaries;
+  - set each summary's relative directory from the DB row so restore/delete can use it later;
+  - avoid `Backup.getItem()` and `BackupItem.getMetadata()` in the dialog open path.
 - `getBaseBackupFlags()` must return the common base-backup flags only when a base backup exists, otherwise `0`.
 
 File:
 
 - `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupInfo.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/struct/BackupMetadataV5.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/db/entity/Backup.java`
 
 ### No Backup Size Scan In Restore List Rows
 
@@ -117,11 +125,35 @@ Required behavior:
 - Keep the original `toLocalizedString(Context)` API and make it call `toLocalizedString(context, true)`.
 - Add `toLocalizedString(Context, boolean includeBackupSize)`.
 - Only append formatted backup size when `includeBackupSize` is `true`.
-- `RestoreSingleFragment.BackupAdapter` must call `metadata.toLocalizedString(context, false)` so opening the restore list does not call `info.getBackupSize()`.
+- Add `toCompactLocalizedString(Context)` for the single-app restore list. It must use two lines at most:
+  - backup display label/account on the first line;
+  - compact metadata on the second line.
+- `toCompactLocalizedString(Context)` must not append formatted backup size or call `info.getBackupSize()`.
+- `RestoreSingleFragment.BackupAdapter` must call `metadata.toCompactLocalizedString(context)` so opening the restore list
+  does not call `info.getBackupSize()` and more backup accounts fit on screen.
+- Single-app restore rows must cap the text to two lines with end ellipsizing.
 
 Files:
 
 - `app/src/main/java/io/github/muntashirakon/AppManager/backup/struct/BackupMetadataV5.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragment.java`
+
+### Restore APK Flag Defaults For Matching Installed Versions
+
+Single-app restore option defaults differ from master.
+
+Required behavior:
+
+- When restoring a selected backup for an installed app, compare the installed app `versionCode` with the selected backup
+  metadata `versionCode`.
+- If the installed version matches the backup version, the restore options dialog must leave `APK files` unchecked by
+  default, even when the backup contains APK files and the user's saved restore flags include APK files.
+- If the installed version does not match, preserve the previous default behavior.
+- If the app is not installed, keep forcing `APK files` checked and disabled as before.
+
+Files:
+
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupInfo.java`
 - `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragment.java`
 
 ### Backup/Restore Dialog Must Avoid Global AppDb Lock
@@ -192,6 +224,9 @@ Required coverage:
 - Installed app labels take priority over backup labels.
 - Backup labels are used when the app is missing.
 - DB summary classification keeps metadata list empty for fast multi-package mode.
+- Single-package DB metadata summaries populate restore-list metadata without reading backup files.
+- Single-package DB metadata summaries preserve base-backup/common-flag state.
+- Installed app `versionCode` is stored and can be compared with a selected restore backup.
 
 ### BackupMetadataV5Test
 
@@ -204,6 +239,8 @@ Required coverage:
 - `toLocalizedString(context, false)` does not include the localized size label.
 - The no-size summary must not call `Info.getBackupSize()`.
 - Other useful details, such as version text, remain present.
+- `toCompactLocalizedString(context)` stays at two lines, keeps the backup label and useful version detail, and still does
+  not read backup size.
 
 ### BackupRestoreDialogViewModelTest
 
@@ -217,6 +254,9 @@ Required coverage:
 - The PackageManager fallback is not called when DB rows already show the app as installed.
 - Backup-only/uninstalled rows are preserved when PackageManager cannot find an installed app.
 - Fallback installed app info makes `BackupInfo` classify the package as installed.
+- Single-package dialog processing uses DB metadata summaries.
+- Multi-package dialog processing keeps metadata lists empty for lightweight classification.
+- The dialog open path does not call `backup.getItem().getMetadata()`.
 
 ### BackupRestoreDialogLayoutTest
 
@@ -231,6 +271,19 @@ Required coverage:
   list itself.
 - Backup, multi-restore, and single-restore fragments refresh the bottom sheet scrolling-child reference after their
   `RecyclerView` is attached.
+- The single-app restore adapter binds compact two-line backup summaries.
+
+### RestoreSingleFragmentTest
+
+File:
+
+- `app/src/test/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragmentTest.java`
+
+Required coverage:
+
+- Initial single-backup restore flags uncheck `APK files` when the installed app version matches the selected backup.
+- Initial single-backup restore flags keep `APK files` checked when the installed app version differs.
+- Initial single-backup restore flags force `APK files` when the app is not installed.
 
 ### AppDbTest
 
@@ -300,6 +353,9 @@ Use these commands after upstream updates or conflict resolution:
   --tests io.github.muntashirakon.AppManager.backup.BackupManagerTest \
   --tests io.github.muntashirakon.AppManager.backup.BackupUtilsTest \
   --tests io.github.muntashirakon.AppManager.backup.dialog.BackupInfoTest \
+  --tests io.github.muntashirakon.AppManager.backup.dialog.BackupRestoreDialogLayoutTest \
+  --tests io.github.muntashirakon.AppManager.backup.dialog.BackupRestoreDialogViewModelTest \
+  --tests io.github.muntashirakon.AppManager.backup.dialog.RestoreSingleFragmentTest \
   --tests io.github.muntashirakon.AppManager.backup.dialog.BackupSelectionStateTest \
   --tests io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5Test \
   --tests io.github.muntashirakon.AppManager.db.utils.AppDbTest

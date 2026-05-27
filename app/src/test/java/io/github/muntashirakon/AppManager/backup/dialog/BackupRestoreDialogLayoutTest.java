@@ -51,6 +51,21 @@ public class BackupRestoreDialogLayoutTest {
                         && source.contains("requestDisallowInterceptTouchEvent(disallowIntercept);"));
     }
 
+    @Test
+    public void singleRestoreRowsUseCompactTwoLineSummaries() throws IOException {
+        File sourceFile = new File("app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragment.java");
+        if (!sourceFile.exists()) {
+            sourceFile = new File("src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragment.java");
+        }
+        String source = new String(Files.readAllBytes(sourceFile.toPath()), StandardCharsets.UTF_8);
+
+        assertTrue("Single-app restore rows must use the compact backup summary",
+                source.contains("metadata.toCompactLocalizedString(holder.item.getContext())"));
+        assertTrue("Single-app restore rows must be capped to two visible lines",
+                source.contains("item.setMaxLines(2);")
+                        && source.contains("TextUtils.TruncateAt.END"));
+    }
+
     private static void assertListOwnsScrolling(String layoutFileName) {
         Document document = parseLayout(layoutFileName);
         Element recyclerView = findAndroidListRecyclerView(document, layoutFileName);

@@ -23,7 +23,6 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -193,7 +192,7 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
                 packageNames.add(userPackagePair.getPackageName());
             }
         }
-        boolean loadFullBackupMetadata = packageNames.size() <= 1;
+        boolean loadSinglePackageBackupSummaries = packageNames.size() <= 1;
         // Fetch info
         for (UserPackagePair userPackagePair : userPackagePairs) {
             if (ThreadUtils.isInterrupted()) {
@@ -220,25 +219,7 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
                 return;
             }
             // Fetch backup info
-            if (loadFullBackupMetadata) {
-                List<BackupMetadataV5> metadataList = new ArrayList<>();
-                for (Backup backup : backups) {
-                    BackupMetadataV5 metadata;
-                    try {
-                        metadata = backup.getItem().getMetadata();
-                        metadataList.add(metadata);
-                    } catch (IOException e) {
-                        // Not found
-                        continue;
-                    }
-                    if (metadata.isBaseBackup()) {
-                        backupInfo.setHasBaseBackup(true);
-                    }
-                }
-                backupInfo.setBackupMetadataList(metadataList);
-            } else {
-                backupInfo.loadBackupsFromDb(backups);
-            }
+            loadBackupsForDialog(backupInfo, backups, loadSinglePackageBackupSummaries);
             if (ThreadUtils.isInterrupted()) {
                 return;
             }
@@ -356,6 +337,15 @@ public class BackupRestoreDialogViewModel extends AndroidViewModel {
         appsWithInstalledFallback.addAll(apps);
         appsWithInstalledFallback.add(installedApp);
         return appsWithInstalledFallback;
+    }
+
+    static void loadBackupsForDialog(@NonNull BackupInfo backupInfo, @NonNull List<Backup> backups,
+                                     boolean loadSinglePackageSummaries) {
+        if (loadSinglePackageSummaries) {
+            backupInfo.loadBackupMetadataSummariesFromDb(backups);
+        } else {
+            backupInfo.loadBackupsFromDb(backups);
+        }
     }
 
     @WorkerThread

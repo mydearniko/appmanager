@@ -10,8 +10,12 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import io.github.muntashirakon.AppManager.backup.BackupFlags;
+import io.github.muntashirakon.AppManager.backup.CryptoUtils;
+import io.github.muntashirakon.AppManager.backup.struct.BackupMetadataV5;
+import io.github.muntashirakon.AppManager.utils.TarUtils;
 import io.github.muntashirakon.AppManager.db.entity.App;
 import io.github.muntashirakon.AppManager.db.entity.Backup;
 
@@ -72,6 +76,57 @@ public class BackupInfoTest {
         assertTrue(info.hasBaseBackup());
         assertEquals(BackupFlags.BACKUP_APK_FILES, info.getBaseBackupFlags());
         assertTrue(info.getBackupMetadataList().isEmpty());
+    }
+
+    @Test
+    public void loadBackupMetadataSummariesFromDbUsesRowsWithoutReadingBackupFiles() {
+        BackupInfo info = new BackupInfo("example.app", 0);
+        Backup backup = backup("nightly", "Nightly Label", BackupFlags.BACKUP_APK_FILES | BackupFlags.BACKUP_INT_DATA);
+        backup.backupTime = 123456789L;
+        backup.crypto = CryptoUtils.MODE_AES;
+        backup.tarType = TarUtils.TAR_GZIP;
+        backup.versionName = "1.2.3";
+        backup.versionCode = 1234L;
+        backup.hasRules = true;
+        backup.hasKeyStore = true;
+
+        info.loadBackupMetadataSummariesFromDb(Collections.singletonList(backup));
+
+        List<BackupMetadataV5> metadataList = info.getBackupMetadataList();
+        assertEquals(1, metadataList.size());
+        BackupMetadataV5 metadata = metadataList.get(0);
+        assertEquals("nightly", metadata.metadata.backupName);
+        assertEquals("Nightly Label", metadata.metadata.label);
+        assertEquals("1.2.3", metadata.metadata.versionName);
+        assertEquals(1234L, metadata.metadata.versionCode);
+        assertEquals(123456789L, metadata.info.backupTime);
+        assertEquals(CryptoUtils.MODE_AES, metadata.info.crypto);
+        assertEquals(TarUtils.TAR_GZIP, metadata.info.tarType);
+        assertEquals("backups/test", metadata.info.getRelativeDir());
+        assertEquals(BackupFlags.BACKUP_APK_FILES | BackupFlags.BACKUP_INT_DATA, metadata.info.flags.getFlags());
+    }
+
+    @Test
+    public void loadBackupMetadataSummariesFromDbStillDetectsBaseBackup() {
+        BackupInfo info = new BackupInfo("example.app", 0);
+
+        info.loadBackupMetadataSummariesFromDb(Collections.singletonList(
+                backup("", "Base", BackupFlags.BACKUP_APK_FILES | BackupFlags.BACKUP_INT_DATA)));
+
+        assertTrue(info.hasBaseBackup());
+        assertEquals(1, info.getBackupMetadataList().size());
+        assertEquals(BackupFlags.BACKUP_APK_FILES | BackupFlags.BACKUP_INT_DATA, info.getBaseBackupFlags());
+    }
+
+    @Test
+    public void installedVersionMatchesSelectedBackupByVersionCode() {
+        BackupInfo info = new BackupInfo("example.app", 0);
+        App app = app("Installed Label", true);
+        app.versionCode = 1234;
+        info.loadApplications(Collections.singletonList(app));
+
+        assertTrue(info.installedVersionMatches(1234));
+        assertFalse(info.installedVersionMatches(5678));
     }
 
     private static App app(String label, boolean installed) {

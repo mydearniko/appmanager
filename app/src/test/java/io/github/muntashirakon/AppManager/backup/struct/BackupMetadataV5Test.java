@@ -3,6 +3,7 @@
 package io.github.muntashirakon.AppManager.backup.struct;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -29,6 +30,22 @@ public class BackupMetadataV5Test {
 
         assertFalse(summary.toString().contains(context.getString(R.string.size)));
         assertTrue(summary.toString().contains("1.2.3"));
+    }
+
+    @Test
+    public void compactLocalizedSummaryUsesTwoLinesAndSkipsBackupSize() throws Exception {
+        Context context = RuntimeEnvironment.getApplication();
+        BackupMetadataV5 metadata = getBackupMetadata();
+
+        CharSequence summary = (CharSequence) BackupMetadataV5.class
+                .getMethod("toCompactLocalizedString", Context.class)
+                .invoke(metadata, context);
+
+        String text = summary.toString();
+        assertEquals(2, text.split("\n", -1).length);
+        assertTrue(text.startsWith("nightly\n"));
+        assertFalse(text.contains(context.getString(R.string.size)));
+        assertTrue(text.contains("1.2.3"));
     }
 
     private static BackupMetadataV5 getBackupMetadata() {
