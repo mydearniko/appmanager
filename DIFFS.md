@@ -145,6 +145,24 @@ Files:
 - `app/src/main/java/io/github/muntashirakon/AppManager/db/utils/AppDb.java`
 - `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupRestoreDialogViewModel.java`
 
+### Backup/Restore Dialog Lists Must Scroll From Inside Rows
+
+The backup/restore bottom sheet layouts differ from master.
+
+Required behavior:
+
+- Backup/restore dialog lists that are inside `NestedScrollView` must set `android:nestedScrollingEnabled="false"`.
+- Swiping over visible backup rows must scroll the surrounding bottom sheet content so users can reach more than the
+  first visible rows.
+- Keep this on the backup, multi-restore, and single-restore dialog list layouts because all three use the same nested
+  `RecyclerView` inside `NestedScrollView` structure.
+
+Files:
+
+- `app/src/main/res/layout/fragment_dialog_backup.xml`
+- `app/src/main/res/layout/fragment_dialog_restore_multiple.xml`
+- `app/src/main/res/layout/fragment_dialog_restore_single.xml`
+
 ## Tests That Protect The Custom Behavior
 
 These tests are custom and should be kept across upstream updates.
@@ -187,6 +205,17 @@ Required coverage:
 - The PackageManager fallback is not called when DB rows already show the app as installed.
 - Backup-only/uninstalled rows are preserved when PackageManager cannot find an installed app.
 - Fallback installed app info makes `BackupInfo` classify the package as installed.
+
+### BackupRestoreDialogLayoutTest
+
+File:
+
+- `app/src/test/java/io/github/muntashirakon/AppManager/backup/dialog/BackupRestoreDialogLayoutTest.java`
+
+Required coverage:
+
+- Backup, multi-restore, and single-restore dialog list layouts disable nested scrolling on their embedded
+  `RecyclerView`, so row swipes are handled by the parent scroll container.
 
 ### AppDbTest
 
