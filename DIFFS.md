@@ -151,11 +151,12 @@ The backup/restore bottom sheet layouts differ from master.
 
 Required behavior:
 
-- Backup/restore dialog lists that are inside `NestedScrollView` must set `android:nestedScrollingEnabled="false"`.
-- Swiping over visible backup rows must scroll the surrounding bottom sheet content so users can reach more than the
-  first visible rows.
-- Keep this on the backup, multi-restore, and single-restore dialog list layouts because all three use the same nested
-  `RecyclerView` inside `NestedScrollView` structure.
+- Backup/restore dialog lists must not wrap the `RecyclerView` in `NestedScrollView`.
+- The list `RecyclerView` must own vertical scrolling with a bounded height:
+  `android:layout_height="0dp"` and `android:layout_weight="1"`.
+- Keep the `RecyclerView` nested scrolling default enabled so bottom-sheet nested scrolling can track the active list
+  instead of leaving row drags stuck on the first visible rows.
+- Keep this on the backup, multi-restore, and single-restore dialog list layouts.
 
 Files:
 
@@ -214,8 +215,9 @@ File:
 
 Required coverage:
 
-- Backup, multi-restore, and single-restore dialog list layouts disable nested scrolling on their embedded
-  `RecyclerView`, so row swipes are handled by the parent scroll container.
+- Backup, multi-restore, and single-restore dialog list layouts do not wrap the list in `NestedScrollView`.
+- Each list `RecyclerView` has a bounded weighted height and does not disable nested scrolling, so row swipes scroll the
+  list itself.
 
 ### AppDbTest
 

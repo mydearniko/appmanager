@@ -3,6 +3,7 @@
 package io.github.muntashirakon.AppManager.backup.dialog;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
@@ -18,16 +19,20 @@ public class BackupRestoreDialogLayoutTest {
     private static final String ANDROID_NS = "http://schemas.android.com/apk/res/android";
 
     @Test
-    public void backupDialogListsDelegateScrollingToParentContainer() {
-        assertListNestedScrollingDisabled("fragment_dialog_backup.xml");
-        assertListNestedScrollingDisabled("fragment_dialog_restore_multiple.xml");
-        assertListNestedScrollingDisabled("fragment_dialog_restore_single.xml");
+    public void backupDialogListsOwnScrollingInsideBottomSheet() {
+        assertListOwnsScrolling("fragment_dialog_backup.xml");
+        assertListOwnsScrolling("fragment_dialog_restore_multiple.xml");
+        assertListOwnsScrolling("fragment_dialog_restore_single.xml");
     }
 
-    private static void assertListNestedScrollingDisabled(String layoutFileName) {
-        Element recyclerView = findAndroidListRecyclerView(parseLayout(layoutFileName), layoutFileName);
+    private static void assertListOwnsScrolling(String layoutFileName) {
+        Document document = parseLayout(layoutFileName);
+        Element recyclerView = findAndroidListRecyclerView(document, layoutFileName);
 
-        assertEquals("false", recyclerView.getAttributeNS(ANDROID_NS, "nestedScrollingEnabled"));
+        assertEquals("0dp", recyclerView.getAttributeNS(ANDROID_NS, "layout_height"));
+        assertEquals("1", recyclerView.getAttributeNS(ANDROID_NS, "layout_weight"));
+        assertNotEquals("false", recyclerView.getAttributeNS(ANDROID_NS, "nestedScrollingEnabled"));
+        assertEquals(0, document.getElementsByTagName("io.github.muntashirakon.widget.NestedScrollView").getLength());
     }
 
     private static Document parseLayout(String layoutFileName) {
