@@ -374,6 +374,15 @@ public class BackupRestoreDialogFragment extends CapsuleBottomSheetDialogFragmen
                 .show();
     }
 
+    static void updateScrollingChildWhenReady(@NonNull Fragment fragment, @NonNull View scrollingChild) {
+        scrollingChild.post(() -> {
+            Fragment parent = fragment.getParentFragment();
+            if (parent instanceof BackupRestoreDialogFragment) {
+                ((BackupRestoreDialogFragment) parent).getBehavior().updateScrollingChild();
+            }
+        });
+    }
+
     private void handleDeleteBaseBackup() {
         // TODO: 5/7/22 Clarify the message by including base backup in the message.
         // TODO: 5/7/22 Display a check box that will include all the backups instead of only base backups.

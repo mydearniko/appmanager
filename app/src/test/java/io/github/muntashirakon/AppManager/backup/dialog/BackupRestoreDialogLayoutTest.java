@@ -4,6 +4,7 @@ package io.github.muntashirakon.AppManager.backup.dialog;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
@@ -12,6 +13,9 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -23,6 +27,13 @@ public class BackupRestoreDialogLayoutTest {
         assertListOwnsScrolling("fragment_dialog_backup.xml");
         assertListOwnsScrolling("fragment_dialog_restore_multiple.xml");
         assertListOwnsScrolling("fragment_dialog_restore_single.xml");
+    }
+
+    @Test
+    public void backupDialogFragmentsRefreshBottomSheetScrollingChildAfterListSetup() throws IOException {
+        assertFragmentRefreshesBottomSheetScrollingChild("BackupFragment.java");
+        assertFragmentRefreshesBottomSheetScrollingChild("RestoreMultipleFragment.java");
+        assertFragmentRefreshesBottomSheetScrollingChild("RestoreSingleFragment.java");
     }
 
     private static void assertListOwnsScrolling(String layoutFileName) {
@@ -47,6 +58,17 @@ public class BackupRestoreDialogLayoutTest {
         } catch (Exception e) {
             throw new AssertionError("Could not parse " + layoutFileName, e);
         }
+    }
+
+    private static void assertFragmentRefreshesBottomSheetScrollingChild(String sourceFileName) throws IOException {
+        File sourceFile = new File("app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog", sourceFileName);
+        if (!sourceFile.exists()) {
+            sourceFile = new File("src/main/java/io/github/muntashirakon/AppManager/backup/dialog", sourceFileName);
+        }
+        String source = new String(Files.readAllBytes(sourceFile.toPath()), StandardCharsets.UTF_8);
+
+        assertTrue(sourceFileName + " must refresh the bottom sheet scrolling child after its list is attached",
+                source.contains("BackupRestoreDialogFragment.updateScrollingChildWhenReady(this, recyclerView);"));
     }
 
     private static Element findAndroidListRecyclerView(Document document, String layoutFileName) {

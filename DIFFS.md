@@ -156,6 +156,9 @@ Required behavior:
   `android:layout_height="0dp"` and `android:layout_weight="1"`.
 - Keep the `RecyclerView` nested scrolling default enabled so bottom-sheet nested scrolling can track the active list
   instead of leaving row drags stuck on the first visible rows.
+- After each backup/restore list fragment attaches its `RecyclerView`, refresh the bottom sheet scrolling-child reference
+  with `BackupRestoreDialogFragment.updateScrollingChildWhenReady(...)`. The ViewPager page callback can run before the
+  list exists, so relying on the page callback alone can leave the bottom sheet intercepting row swipes.
 - Keep this on the backup, multi-restore, and single-restore dialog list layouts.
 
 Files:
@@ -163,6 +166,10 @@ Files:
 - `app/src/main/res/layout/fragment_dialog_backup.xml`
 - `app/src/main/res/layout/fragment_dialog_restore_multiple.xml`
 - `app/src/main/res/layout/fragment_dialog_restore_single.xml`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupRestoreDialogFragment.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/BackupFragment.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreMultipleFragment.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/backup/dialog/RestoreSingleFragment.java`
 
 ## Tests That Protect The Custom Behavior
 
@@ -218,6 +225,8 @@ Required coverage:
 - Backup, multi-restore, and single-restore dialog list layouts do not wrap the list in `NestedScrollView`.
 - Each list `RecyclerView` has a bounded weighted height and does not disable nested scrolling, so row swipes scroll the
   list itself.
+- Backup, multi-restore, and single-restore fragments refresh the bottom sheet scrolling-child reference after their
+  `RecyclerView` is attached.
 
 ### AppDbTest
 
