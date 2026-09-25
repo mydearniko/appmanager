@@ -14,7 +14,7 @@ android {
         applicationId 'io.github.muntashirakon.AppManager'
         minSdk min_sdk
         targetSdk target_sdk
-        versionCode 445
+        versionCode getAndBumpVersionCode()
         versionName "4.0.5"
         javaCompileOptions {
             annotationProcessorOptions {
@@ -78,6 +78,7 @@ android {
     }
     splits {
         abi {
+            enable true
             reset()
             include 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
             universalApk true
@@ -219,4 +220,26 @@ static def isDigitsOnly(CharSequence str) {
         }
     }
     return true
+}
+
+def getAndBumpVersionCode() {
+    def versionPropsFile = file('version.properties')
+    def code = 445
+    def props = new Properties()
+    if (versionPropsFile.exists()) {
+        versionPropsFile.withInputStream { props.load(it) }
+        code = props.getProperty('VERSION_CODE').toInteger()
+    }
+    
+    def startParameterTasks = gradle.startParameter.taskNames
+    def isBuildTask = startParameterTasks.any { it.contains("assemble") || it.contains("bundle") || it.contains("package") || it.contains("install") }
+    
+    if (isBuildTask) {
+        code++
+        props.setProperty('VERSION_CODE', code.toString())
+        versionPropsFile.withOutputStream { props.store(it, null) }
+        println("Auto-bumped Version Code to: ${code}")
+    }
+    
+    return code
 }

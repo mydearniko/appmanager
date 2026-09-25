@@ -23,9 +23,12 @@ import androidx.appcompat.app.AppCompatDelegate;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
+import android.text.TextUtils;
 
 import io.github.muntashirakon.AppManager.BuildConfig;
 import io.github.muntashirakon.AppManager.R;
@@ -140,6 +143,7 @@ public class AppPref {
         PREF_SELECTED_USERS_STR,
         PREF_SEND_NOTIFICATIONS_TO_CONNECTED_DEVICES_BOOL,
         PREF_SIGNATURE_SCHEMES_INT,
+        PREF_PINNED_APPS_STR,
         PREF_SHOW_DISCLAIMER_BOOL,
 
         PREF_TIPS_PREFS_INT,
@@ -267,6 +271,20 @@ public class AppPref {
 
     public static void set(PrefKey key, Object value) {
         getInstance().setPref(key, value);
+    }
+
+    @NonNull
+    public static Set<String> getPinnedPackages() {
+        String pinnedStr = getString(PrefKey.PREF_PINNED_APPS_STR);
+        Set<String> pinned = new HashSet<>();
+        if (pinnedStr != null && !pinnedStr.isEmpty()) {
+            pinned.addAll(Arrays.asList(pinnedStr.split(",")));
+        }
+        return pinned;
+    }
+
+    public static void setPinnedPackages(@NonNull Set<String> pinned) {
+        set(PrefKey.PREF_PINNED_APPS_STR, TextUtils.join(",", pinned));
     }
 
     @NonNull
@@ -448,6 +466,7 @@ public class AppPref {
             case PREF_MAIN_WINDOW_FILTER_PROFILE_STR:
             case PREF_SELECTED_USERS_STR:
             case PREF_VIRUS_TOTAL_API_KEY_STR:
+            case PREF_PINNED_APPS_STR:
                 return "";
             case PREF_MODE_OF_OPS_STR:
                 return Ops.MODE_AUTO;

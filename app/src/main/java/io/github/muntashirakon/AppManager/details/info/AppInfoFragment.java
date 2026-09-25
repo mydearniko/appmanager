@@ -81,6 +81,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -149,6 +151,7 @@ import io.github.muntashirakon.AppManager.uri.GrantUriUtils;
 import io.github.muntashirakon.AppManager.usage.AppUsageStatsManager;
 import io.github.muntashirakon.AppManager.users.UserInfo;
 import io.github.muntashirakon.AppManager.users.Users;
+import io.github.muntashirakon.AppManager.utils.AppPref;
 import io.github.muntashirakon.AppManager.utils.ArrayUtils;
 import io.github.muntashirakon.AppManager.utils.BetterActivityResult;
 import io.github.muntashirakon.AppManager.utils.ClipboardUtils;
@@ -362,6 +365,17 @@ public class AppInfoFragment extends Fragment implements SwipeRefreshLayout.OnRe
 
     @Override
     public void onPrepareMenu(@NonNull Menu menu) {
+        MenuItem pinMenu = menu.findItem(R.id.action_pin_unpin);
+        if (pinMenu != null) {
+            if (mIsExternalApk) {
+                pinMenu.setVisible(false);
+            } else {
+                boolean isPinned = AppPref.getPinnedPackages().contains(mPackageName);
+                pinMenu.setTitle(isPinned ? R.string.unpin_app : R.string.pin_app);
+                pinMenu.setIcon(isPinned ? R.drawable.ic_star : R.drawable.ic_star_outline);
+                pinMenu.setVisible(true);
+            }
+        }
         if (mIsExternalApk) return;
         MenuItem magiskHideMenu = menu.findItem(R.id.action_magisk_hide);
         MenuItem magiskDenyListMenu = menu.findItem(R.id.action_magisk_denylist);
@@ -420,7 +434,16 @@ public class AppInfoFragment extends Fragment implements SwipeRefreshLayout.OnRe
     @Override
     public boolean onMenuItemSelected(@NonNull MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.action_refresh_detail) {
+        if (itemId == R.id.action_pin_unpin) {
+            Set<String> pinned = AppPref.getPinnedPackages();
+            if (pinned.contains(mPackageName)) {
+                pinned.remove(mPackageName);
+            } else {
+                pinned.add(mPackageName);
+            }
+            AppPref.setPinnedPackages(pinned);
+            mActivity.invalidateOptionsMenu();
+        } else if (itemId == R.id.action_refresh_detail) {
             refreshDetails();
         } else if (itemId == R.id.action_share_apk) {
             showProgressIndicator(true);
@@ -1336,6 +1359,20 @@ public class AppInfoFragment extends Fragment implements SwipeRefreshLayout.OnRe
                     }
                 });
             }
+            // Set backup/restore
+            ActionItem backupAction = new ActionItem(R.string.backup_restore, R.drawable.ic_backup_restore);
+            actionItems.add(backupAction);
+            backupAction.setOnClickListener(v -> {
+                if (mMainModel == null) return;
+                BackupRestoreDialogFragment fragment = BackupRestoreDialogFragment.getInstanceWithPref(
+                        Collections.singletonList(new UserPackagePair(mPackageName, mUserId)), mUserId);
+                fragment.setOnActionBeginListener(mode -> showProgressIndicator(true));
+                fragment.setOnActionCompleteListener((mode, failedPackages) -> {
+                    showProgressIndicator(false);
+                    mMainModel.getTagsAlteredLiveData().setValue(true);
+                });
+                fragment.show(getParentFragmentManager(), BackupRestoreDialogFragment.TAG);
+            });
             // Set freeze/unfreeze
             if (canFreeze && !isFrozen) {
                 ActionItem freezeAction = new ActionItem(R.string.freeze, R.drawable.ic_snowflake);

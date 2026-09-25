@@ -152,6 +152,7 @@ public final class PackageUtils {
             }
         }
         Map<String, Backup> backups = appDb.getBackups(false);
+        Set<String> pinnedPackages = AppPref.getPinnedPackages();
         int thisUser = UserHandleHidden.myUserId();
         // Get application items from apps
         for (App app : apps) {
@@ -165,6 +166,7 @@ public final class PackageUtils {
                 } else {
                     // Item doesn't exist
                     item = new ApplicationItem();
+                    item.isPinned = pinnedPackages.contains(app.packageName);
                     applicationItems.put(app.packageName, item);
                     item.packageName = app.packageName;
                 }
@@ -196,6 +198,7 @@ public final class PackageUtils {
                     // Item doesn't exist, don't add user handle
                     item = new ApplicationItem();
                     item.packageName = app.packageName;
+                    item.isPinned = pinnedPackages.contains(app.packageName);
                     applicationItems.put(app.packageName, item);
                     item.isInstalled = false;
                     item.isOnlyDataInstalled = app.isOnlyDataInstalled;

@@ -174,6 +174,10 @@ public class ApplicationItem extends PackageItemInfo implements IFilterableAppIn
      * Whether the item is selected
      */
     public boolean isSelected = false;
+    /**
+     * Whether the item is pinned
+     */
+    public boolean isPinned = false;
 
     @NonNull
     public int[] userIds = EmptyArray.INT;

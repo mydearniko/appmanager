@@ -18,6 +18,79 @@ Current upstream sync:
 
 ## Required Custom Behavior
 
+### Bypass Startup Warning Dialogs
+
+Bypass showing the disclaimer dialog and the build expiration warning dialog on application startup.
+
+Required behavior:
+- The disclaimer dialog in `MainActivity` is bypassed, and it directly proceeds to `displayChangelogIfRequired()`.
+- The build expiration warning in `BuildExpiryChecker.buildExpired()` always returns `false`, preventing any build expiration warning popups.
+
+Files:
+- `app/src/main/java/io/github/muntashirakon/AppManager/main/MainActivity.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/self/life/BuildExpiryChecker.java`
+
+### Pin/Unpin Applications
+
+Allow pinning applications to the top of the main application list.
+
+Required behavior:
+- A new preference key `PREF_PINNED_APPS_STR` stores a comma-separated list of pinned package names.
+- Pinned applications always appear at the top of the main list, regardless of the active sorting option. Pinned apps are sorted among themselves, and unpinned apps are sorted below them.
+- A pin emoji `📌 ` is prepended to the application label in the main recycler list if the app is pinned.
+- Applications can be pinned/unpinned via:
+  1. Multi-selection actions menu in the main list.
+  2. The options menu (three dots) in the application details page (App Info).
+- Returning to the main list automatically updates the sorting based on the new pinned state.
+
+Files:
+- `app/src/main/java/io/github/muntashirakon/AppManager/main/ApplicationItem.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/main/MainActivity.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/main/MainViewModel.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/main/MainRecyclerAdapter.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/details/info/AppInfoFragment.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/utils/AppPref.java`
+- `app/src/main/java/io/github/muntashirakon/AppManager/utils/PackageUtils.java`
+- `app/src/main/res/menu/activity_main_selection_actions.xml`
+- `app/src/main/res/menu/fragment_app_info_actions.xml`
+- `app/src/main/res/values/strings.xml`
+
+### Backup/Restore Action Button Placement
+
+The Backup/Restore action button is placed prominently in the horizontal action buttons layout of the App Info page.
+
+Required behavior:
+- A prominent "Backup/Restore" button using the `ic_backup_restore` icon is added to the horizontal actions container in the App Info details page.
+- It is placed as the second action button, immediately following the "Launch app" (Start) button.
+
+Files:
+- `app/src/main/java/io/github/muntashirakon/AppManager/details/info/AppInfoFragment.java`
+
+### Auto-bump Version Code on Build
+
+When building the APK, the version code must automatically increment to ensure upgrade compatibility.
+
+Required behavior:
+- The version code is read from `app/version.properties`.
+- On every build task execution (e.g., tasks containing `assemble`, `bundle`, `package`, or `install`), the version code in `app/version.properties` is incremented.
+- The built APK is compiled with the updated version code.
+
+Files:
+- `app/build.gradle`
+- `app/version.properties`
+
+### External Media Logging Directory
+
+Logger prefers writing log files to an app-specific external media directory when available before falling back to internal cache.
+
+Required behavior:
+- `Logger.getLoggingDirectory()` checks `ContextUtils.getContext().getExternalMediaDirs()`.
+- If an external media directory exists or can be created and is writable, it is returned as the logging directory.
+- Otherwise, fallback to `FileUtils.getCachePath()`.
+
+Files:
+- `app/src/main/java/io/github/muntashirakon/AppManager/logs/Logger.java`
+
 ### Friendly Backup Names
 
 Backup names must support readable labels instead of forcing filename-style names.

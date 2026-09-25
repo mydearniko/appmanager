@@ -13,12 +13,29 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import android.content.Context;
+import io.github.muntashirakon.AppManager.utils.ContextUtils;
 import io.github.muntashirakon.AppManager.BuildConfig;
 import io.github.muntashirakon.AppManager.utils.FileUtils;
 
 public class Logger implements Closeable {
     @NonNull
     public static File getLoggingDirectory() {
+        try {
+            Context context = ContextUtils.getContext();
+            File[] mediaDirs = context.getExternalMediaDirs();
+            if (mediaDirs != null && mediaDirs.length > 0 && mediaDirs[0] != null) {
+                File mediaDir = mediaDirs[0];
+                if (!mediaDir.exists()) {
+                    mediaDir.mkdirs();
+                }
+                if (mediaDir.exists() && mediaDir.canWrite()) {
+                    return mediaDir;
+                }
+            }
+        } catch (Exception e) {
+            // Ignore and fallback
+        }
         return FileUtils.getCachePath();
     }
 

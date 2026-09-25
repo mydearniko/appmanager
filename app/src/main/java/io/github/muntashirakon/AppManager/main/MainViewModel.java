@@ -43,6 +43,7 @@ import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 import io.github.muntashirakon.AppManager.apk.list.ListExporter;
@@ -71,6 +72,7 @@ import io.github.muntashirakon.AppManager.usage.PackageUsageInfo;
 import io.github.muntashirakon.AppManager.usage.TimeInterval;
 import io.github.muntashirakon.AppManager.usage.UsageUtils;
 import io.github.muntashirakon.AppManager.users.Users;
+import io.github.muntashirakon.AppManager.utils.AppPref;
 import io.github.muntashirakon.AppManager.utils.ArrayUtils;
 import io.github.muntashirakon.AppManager.utils.ExUtils;
 import io.github.muntashirakon.AppManager.utils.MultithreadedExecutor;
@@ -327,6 +329,23 @@ public class MainViewModel extends AndroidViewModel implements ListOptions.ListO
 
     @AnyThread
     public void onResume() {
+        executor.submit(() -> {
+            synchronized (mApplicationItems) {
+                Set<String> pinned = AppPref.getPinnedPackages();
+                boolean anyChanged = false;
+                for (ApplicationItem item : mApplicationItems) {
+                    boolean isPinned = pinned.contains(item.packageName);
+                    if (item.isPinned != isPinned) {
+                        item.isPinned = isPinned;
+                        anyChanged = true;
+                    }
+                }
+                if (anyChanged) {
+                    sortApplicationList(mSortBy, mReverseSort);
+                    filterItemsByFlags();
+                }
+            }
+        });
         if ((mFilterFlags & MainListOptions.FILTER_RUNNING_APPS) != 0) {
             // Reload filters to get running apps again
             cancelIfRunning();
@@ -542,6 +561,9 @@ public class MainViewModel extends AndroidViewModel implements ListOptions.ListO
             int mode = reverse ? -1 : 1;
             Collator collator = Collator.getInstance();
             Collections.sort(mApplicationItems, (o1, o2) -> {
+                if (o1.isPinned != o2.isPinned) {
+                    return o1.isPinned ? -1 : 1;
+                }
                 switch (sortBy) {
                     case MainListOptions.SORT_BY_APP_LABEL:
                         return mode * collator.compare(o1.label, o2.label);
@@ -708,6 +730,7 @@ public class MainViewModel extends AndroidViewModel implements ListOptions.ListO
     @Nullable
     private ApplicationItem getNewApplicationItem(@NonNull String packageName, @NonNull List<App> apps) {
         ApplicationItem item = new ApplicationItem();
+        item.isPinned = AppPref.getPinnedPackages().contains(packageName);
         int thisUser = UserHandleHidden.myUserId();
         for (App app : apps) {
             if (!packageName.equals(app.packageName)) {

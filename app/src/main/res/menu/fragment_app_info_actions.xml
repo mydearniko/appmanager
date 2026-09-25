@@ -94,6 +94,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_pin_unpin"
+        android:icon="@drawable/ic_star"
+        android:title="@string/pin_unpin"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_install"
         android:icon="@drawable/ic_get_app"
         android:title="@string/install_for_another_user"

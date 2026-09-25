@@ -53,4 +53,8 @@
         android:id="@+id/action_add_to_profile"
         android:icon="@drawable/ic_file_plus"
         android:title="@string/add_to_profile" />
+    <item
+        android:id="@+id/action_pin_unpin"
+        android:icon="@drawable/ic_star"
+        android:title="@string/pin_unpin" />
 </menu>

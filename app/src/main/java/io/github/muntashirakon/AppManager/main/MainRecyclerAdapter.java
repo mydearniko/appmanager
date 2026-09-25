@@ -265,10 +265,11 @@ public class MainRecyclerAdapter extends MultiSelectionView.Adapter<MainRecycler
         holder.icon.setTag(item.packageName);
         ImageLoader.getInstance().displayImage(item.packageName, item, holder.icon);
         // Set app label
+        String labelText = item.isPinned ? "📌 " + item.label : item.label;
         if (!TextUtils.isEmpty(mSearchQuery) && item.label.toLowerCase(Locale.ROOT).contains(mSearchQuery)) {
             // Highlight searched query
-            holder.label.setText(UIUtils.getHighlightedText(item.label, mSearchQuery, mQueryStringHighlight));
-        } else holder.label.setText(item.label);
+            holder.label.setText(UIUtils.getHighlightedText(labelText, mSearchQuery, mQueryStringHighlight));
+        } else holder.label.setText(labelText);
         // Set app label color to red if clearing user data not allowed
         if (item.isInstalled && !item.allowClearingUserData) {
             holder.label.setTextColor(Color.RED);

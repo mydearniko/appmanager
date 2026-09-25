@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import io.github.muntashirakon.AppManager.BaseActivity;
 import io.github.muntashirakon.AppManager.BuildConfig;
@@ -246,24 +247,7 @@ public class MainActivity extends BaseActivity implements AdvancedSearchView.OnQ
         mBatchOpsHandler = new MainBatchOpsHandler(mMultiSelectionView, viewModel);
         mMultiSelectionView.setOnSelectionChangeListener(mBatchOpsHandler);
 
-        if (SHOW_DISCLAIMER && AppPref.getBoolean(AppPref.PrefKey.PREF_SHOW_DISCLAIMER_BOOL)) {
-            // Disclaimer will only be shown the first time it is loaded.
-            SHOW_DISCLAIMER = false;
-            View view = View.inflate(this, R.layout.dialog_disclaimer, null);
-            new MaterialAlertDialogBuilder(this)
-                    .setView(view)
-                    .setCancelable(false)
-                    .setPositiveButton(R.string.disclaimer_agree, (dialog, which) -> {
-                        if (((MaterialCheckBox) view.findViewById(R.id.agree_forever)).isChecked()) {
-                            AppPref.set(AppPref.PrefKey.PREF_SHOW_DISCLAIMER_BOOL, false);
-                        }
-                        displayChangelogIfRequired();
-                    })
-                    .setNegativeButton(R.string.disclaimer_exit, (dialog, which) -> finishAndRemoveTask())
-                    .show();
-        } else {
-            displayChangelogIfRequired();
-        }
+        displayChangelogIfRequired();
 
         // Set observer
         viewModel.getApplicationItems().observe(this, applicationItems -> {
@@ -482,6 +466,30 @@ public class MainActivity extends BaseActivity implements AdvancedSearchView.OnQ
             AddToProfileDialogFragment dialog = AddToProfileDialogFragment.getInstance(viewModel.getSelectedPackages()
                     .keySet().toArray(new String[0]));
             dialog.show(getSupportFragmentManager(), AddToProfileDialogFragment.TAG);
+        } else if (id == R.id.action_pin_unpin) {
+            if (viewModel != null) {
+                Set<String> pinned = AppPref.getPinnedPackages();
+                Collection<ApplicationItem> selectedItems = viewModel.getSelectedPackages().values();
+                boolean anyUnpinned = false;
+                for (ApplicationItem selectedItem : selectedItems) {
+                    if (!pinned.contains(selectedItem.packageName)) {
+                        anyUnpinned = true;
+                        break;
+                    }
+                }
+                for (ApplicationItem selectedItem : selectedItems) {
+                    if (anyUnpinned) {
+                        pinned.add(selectedItem.packageName);
+                        selectedItem.isPinned = true;
+                    } else {
+                        pinned.remove(selectedItem.packageName);
+                        selectedItem.isPinned = false;
+                    }
+                }
+                AppPref.setPinnedPackages(pinned);
+                mAdapter.cancelSelection();
+                viewModel.loadApplicationItems();
+            }
         } else {
             return false;
         }
