@@ -12,7 +12,7 @@ toybox/src/main/jniLibs
 app/src/main/assets/am.jar
 app/src/main/assets/main.jar
 pids
-logs
+/logs/
 node_modules
 npm-debug.log
 coverage/
@@ -24,7 +24,22 @@ dist
 config.local.js
 basement_dist
 *.apk
+!app/src/test/resources/**/*.apk
 *.iml
 *.jks
+!app/dev_keystore.jks
 *~
 scripts/KeyStore.sh
+
+# Logs and temporary files
+*.log
+!app/src/test/resources/**/*.log
+
+# Secrets and private keys
+*.key
+*.pem
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
